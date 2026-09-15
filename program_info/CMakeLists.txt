@@ -12,11 +12,11 @@ set(Launcher_CommonName "Arsenal")
 set(Launcher_DisplayName "Arsenal Launcher")
 set(Launcher_AppID "org.arsenallauncher.Arsenal")
 set(Launcher_Domain "arsenallauncher.local")
-set(Launcher_Git "https://github.com/Thravok/HackerMC")
+set(Launcher_Git "https://github.com/Thravok/Arsenal-Launcher")
 
 set(Launcher_Name "${Launcher_CommonName}" PARENT_SCOPE)
 set(Launcher_DisplayName "${Launcher_DisplayName}" PARENT_SCOPE)
-set(Launcher_ENVName "PRISMLAUNCHER" PARENT_SCOPE)
+set(Launcher_ENVName "ARSENAL" PARENT_SCOPE)
 set(Launcher_Domain "${Launcher_Domain}" PARENT_SCOPE)
 set(Launcher_Git "${Launcher_Git}" PARENT_SCOPE)
 

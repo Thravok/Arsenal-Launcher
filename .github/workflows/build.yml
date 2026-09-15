@@ -27,8 +27,42 @@ on:
 permissions: {}
 
 jobs:
+  setup:
+    name: Setup build matrix
+    runs-on: ubuntu-slim
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Select matrix
+        id: set-matrix
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          # Slim matrix on PRs; full matrix for merge queue, release (workflow_call), and manual runs
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            MATRIX='{"include":[
+              {"os":"ubuntu-24.04","artifact-name":"Linux","cmake-preset":"linux","qt-version":"6.11.2"},
+              {"os":"windows-2022","artifact-name":"Windows-MSVC","cmake-preset":"windows_msvc","vcvars-arch":"amd64","qt-version":"6.11.2"},
+              {"os":"macos-26","artifact-name":"macOS","cmake-preset":"macos_universal","macosx-deployment-target":"13.0","qt-version":"6.11.2"}
+            ]}'
+          else
+            MATRIX='{"include":[
+              {"os":"ubuntu-24.04","artifact-name":"Linux","cmake-preset":"linux","qt-version":"6.11.2"},
+              {"os":"ubuntu-24.04-arm","artifact-name":"Linux-aarch64","cmake-preset":"linux","qt-version":"6.11.2"},
+              {"os":"windows-2022","artifact-name":"Windows-MinGW-w64","cmake-preset":"windows_mingw","msystem":"CLANG64","vcvars-arch":"amd64_x86"},
+              {"os":"windows-2022","artifact-name":"Windows-MSVC","cmake-preset":"windows_msvc","vcvars-arch":"amd64","qt-version":"6.11.2"},
+              {"os":"windows-11-arm","artifact-name":"Windows-MSVC-arm64","cmake-preset":"windows_msvc","vcvars-arch":"arm64","qt-version":"6.11.2"},
+              {"os":"macos-26","artifact-name":"macOS","cmake-preset":"macos_universal","macosx-deployment-target":"13.0","qt-version":"6.11.2"}
+            ]}'
+          fi
+          # Compact JSON for fromJSON
+          MATRIX="$(printf '%s' "$MATRIX" | tr -d '\n' | sed 's/  */ /g')"
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+
   build:
     name: Build (${{ matrix.artifact-name }})
+
+    needs: setup
 
     environment: ${{ inputs.environment || '' }}
 
@@ -41,52 +75,7 @@ jobs:
 
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          # on-pr: true → runs on pull_request; full matrix on merge_group / workflow_call / workflow_dispatch
-          - os: ubuntu-24.04
-            artifact-name: Linux
-            cmake-preset: linux
-            qt-version: 6.11.2
-            on-pr: true
-
-          - os: ubuntu-24.04-arm
-            artifact-name: Linux-aarch64
-            cmake-preset: linux
-            qt-version: 6.11.2
-            on-pr: false
-
-          - os: windows-2022
-            artifact-name: Windows-MinGW-w64
-            cmake-preset: windows_mingw
-            msystem: CLANG64
-            vcvars-arch: amd64_x86
-            on-pr: false
-
-          - os: windows-2022
-            artifact-name: Windows-MSVC
-            cmake-preset: windows_msvc
-            # TODO(@getchoo): This is the default in setup-dependencies/windows. Why isn't it working?!?!
-            vcvars-arch: amd64
-            qt-version: 6.11.2
-            on-pr: true
-
-          - os: windows-11-arm
-            artifact-name: Windows-MSVC-arm64
-            cmake-preset: windows_msvc
-            vcvars-arch: arm64
-            qt-version: 6.11.2
-            on-pr: false
-
-          - os: macos-26
-            artifact-name: macOS
-            cmake-preset: macos_universal
-            macosx-deployment-target: 13.0
-            qt-version: 6.11.2
-            on-pr: true
-
-    # Slim matrix on PRs; full matrix for merge queue, release (workflow_call), and manual runs
-    if: ${{ github.event_name != 'pull_request' || matrix.on-pr == true }}
+      matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
 
     runs-on: ${{ matrix.os }}
 

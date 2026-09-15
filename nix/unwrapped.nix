@@ -45,8 +45,8 @@ let
 in
 
 stdenv.mkDerivation {
-  pname = "prismlauncher-unwrapped";
-  version = "10.0-unstable-${date}";
+  pname = "arsenal-unwrapped";
+  version = "1.0-unstable-${date}";
 
   src = lib.fileset.toSource {
     root = ../.;
@@ -70,7 +70,7 @@ stdenv.mkDerivation {
 
   postPatch = ''
     substituteInPlace launcher/minecraft/ShortcutUtils.cpp \
-      --replace-fail 'QApplication::applicationFilePath()' 'QProcessEnvironment::systemEnvironment().value("NIX_LAUNCHER_WRAPPER", "${placeholder "out"}/bin/prismlauncher")'
+      --replace-fail 'QApplication::applicationFilePath()' 'QProcessEnvironment::systemEnvironment().value("NIX_LAUNCHER_WRAPPER", "${placeholder "out"}/bin/arsenal")'
   '';
 
   nativeBuildInputs = [
@@ -113,19 +113,17 @@ stdenv.mkDerivation {
   dontWrapQtApps = true;
 
   meta = {
-    description = "Free, open source launcher for Minecraft";
+    description = "Minecraft launcher with Hack Clients support (Arsenal Launcher)";
     longDescription = ''
       Allows you to have multiple, separate instances of Minecraft (each with
       their own mods, texture packs, saves, etc) and helps you manage them and
-      their associated options with a simple interface.
+      their associated options with a simple interface. Includes a Hack Clients
+      tab for one-click client installs.
     '';
-    homepage = "https://prismlauncher.org/";
+    homepage = "https://github.com/Thravok/Arsenal-Launcher";
     license = lib.licenses.gpl3Only;
-    maintainers = with lib.maintainers; [
-      Scrumplex
-      getchoo
-    ];
-    mainProgram = "prismlauncher";
+    maintainers = [ ];
+    mainProgram = "arsenal";
     platforms = lib.platforms.linux ++ lib.platforms.darwin;
   };
 }
