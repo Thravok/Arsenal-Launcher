@@ -158,8 +158,35 @@ As a bonus, you can also [cryptographically sign your commits][gh-signing-commit
 [gh-signing-commits]: https://docs.github.com/en/authentication/managing-commit-signature-verification/signing-commits
 [gh-vigilant-mode]: https://docs.github.com/en/authentication/managing-commit-signature-verification/displaying-verification-statuses-for-all-of-your-commits
 
+## Continuous Integration
+
+Pull requests run a slim Build matrix (Linux x86_64, Windows MSVC, macOS) plus Clang-Tidy.
+The full Build matrix (including Linux aarch64, Windows MinGW, Windows ARM64) runs on merge queue, release tags (`v*`), and manual `workflow_dispatch`.
+
+### Branch protection (`develop`)
+
+Configure these rules in GitHub → Settings → Branches (or Rulesets) for `develop`:
+
+- Require a pull request before merging
+- Do not allow force pushes
+- Require status checks to pass:
+  - `Build (Linux)`
+  - `Build (Windows-MSVC)`
+  - `Build (macOS)`
+  - `Run Clang-Tidy`
+- Optionally enable a merge queue so the full Build matrix runs before merge
+
+### Release signing variables
+
+Windows Trusted Signing uses repository variables (set when Azure certs are ready):
+
+- `AZURE_TRUSTED_SIGNING_ACCOUNT`
+- `AZURE_TRUSTED_SIGNING_PROFILE`
+
+Also set `CI_HAS_ACCESS_TO_AZURE` and the Azure OIDC secrets when enabling signing.
+
 ## Backporting to Release Branches
 
-We use [automated backports](https://github.com/PrismLauncher/PrismLauncher/blob/develop/.github/workflows/backport.yml) to merge specific contributions from develop into `release` branches.
+We use [automated backports](https://github.com/Thravok/Arsenal-Launcher/blob/develop/.github/workflows/backport.yml) to merge specific contributions from develop into `release` branches.
 
 This is done when pull requests are merged and have labels such as `backport release-7.x` - which should be added along with the milestone for the release.

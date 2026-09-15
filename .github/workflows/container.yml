@@ -5,9 +5,13 @@ concurrency:
   cancel-in-progress: true
 
 on:
+  push:
+    branches:
+      - develop
+    tags:
+      - "v*"
   merge_group:
     types: [checks_requested]
-  pull_request:
   workflow_dispatch:
 
 permissions: {}
@@ -44,7 +48,7 @@ jobs:
           echo "image-name=${REGISTRY}/${GITHUB_REPOSITORY_OWNER,,}/devcontainer" >> "$GITHUB_OUTPUT"
 
       - name: Install Podman
-        uses: redhat-actions/podman-install@main
+        uses: redhat-actions/podman-install@6daab8b71872b8595fa4e0d3126da360afea3c3c # main
         # TODO(@getchoo): Always use this when the action properly supports ARM
         if: ${{ runner.arch == 'X64' || runner.arch == 'X86' }}
         with:
@@ -128,7 +132,7 @@ jobs:
       - name: Install Podman
         # TODO(@getchoo): Always use this when the action properly supports ARM
         if: ${{ runner.arch == 'X64' || runner.arch == 'X86' }}
-        uses: redhat-actions/podman-install@main
+        uses: redhat-actions/podman-install@6daab8b71872b8595fa4e0d3126da360afea3c3c # main
         with:
           github-token: ${{ github.token }}
 

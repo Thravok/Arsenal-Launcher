@@ -19,6 +19,8 @@ permissions: {}
 jobs:
   blocked_status:
     name: Check Blocked Status
+    # Requires vars.PULL_REQUEST_APP_ID and secrets.PULL_REQUEST_APP_PRIVATE_KEY
+    if: ${{ vars.PULL_REQUEST_APP_ID != '' }}
     runs-on: ubuntu-slim
 
     steps:

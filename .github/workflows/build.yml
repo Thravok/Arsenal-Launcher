@@ -43,21 +43,25 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # on-pr: true → runs on pull_request; full matrix on merge_group / workflow_call / workflow_dispatch
           - os: ubuntu-24.04
             artifact-name: Linux
             cmake-preset: linux
             qt-version: 6.11.2
+            on-pr: true
 
           - os: ubuntu-24.04-arm
             artifact-name: Linux-aarch64
             cmake-preset: linux
             qt-version: 6.11.2
+            on-pr: false
 
           - os: windows-2022
             artifact-name: Windows-MinGW-w64
             cmake-preset: windows_mingw
             msystem: CLANG64
             vcvars-arch: amd64_x86
+            on-pr: false
 
           - os: windows-2022
             artifact-name: Windows-MSVC
@@ -65,18 +69,24 @@ jobs:
             # TODO(@getchoo): This is the default in setup-dependencies/windows. Why isn't it working?!?!
             vcvars-arch: amd64
             qt-version: 6.11.2
+            on-pr: true
 
           - os: windows-11-arm
             artifact-name: Windows-MSVC-arm64
             cmake-preset: windows_msvc
             vcvars-arch: arm64
             qt-version: 6.11.2
+            on-pr: false
 
           - os: macos-26
             artifact-name: macOS
             cmake-preset: macos_universal
             macosx-deployment-target: 13.0
             qt-version: 6.11.2
+            on-pr: true
+
+    # Slim matrix on PRs; full matrix for merge queue, release (workflow_call), and manual runs
+    if: ${{ github.event_name != 'pull_request' || matrix.on-pr == true }}
 
     runs-on: ${{ matrix.os }}
 

@@ -15,8 +15,16 @@ jobs:
 
     runs-on: ubuntu-slim
 
+    env:
+      WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+
     steps:
+      - name: Skip when Winget token is unset
+        if: ${{ env.WINGET_TOKEN == '' }}
+        run: echo "WINGET_TOKEN is not configured; skipping Winget publish."
+
       - name: Publish on Winget
+        if: ${{ env.WINGET_TOKEN != '' }}
         # @Octol1ttle: Pinned to a commit because no release has been published that works on ubuntu-slim
         uses: vedantmgoyal2009/winget-releaser@7bd472be23763def6e16bd06cc8b1cdfab0e2fd5 # docs: add description to inputs (#335)
         with:
