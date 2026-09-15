@@ -315,6 +315,12 @@ set(MINECRAFT_SOURCES
     hackclients/BaritoneInstallTask.cpp
     hackclients/BaritoneModInstallTask.h
     hackclients/BaritoneModInstallTask.cpp
+    hackclients/MeteorAddonsProvider.h
+    hackclients/MeteorAddonsProvider.cpp
+    hackclients/MeteorAddonInstallTask.h
+    hackclients/MeteorAddonInstallTask.cpp
+    hackclients/HackClientInstanceDetect.h
+    hackclients/HackClientInstanceDetect.cpp
 
     minecraft/GradleSpecifier.h
     minecraft/MinecraftInstance.cpp
@@ -1128,6 +1134,8 @@ SET(LAUNCHER_SOURCES
     ui/dialogs/BlockedModsDialog.h
     ui/dialogs/ChooseProviderDialog.h
     ui/dialogs/ChooseProviderDialog.cpp
+    ui/dialogs/MeteorAddonsDialog.h
+    ui/dialogs/MeteorAddonsDialog.cpp
     ui/dialogs/ResourceUpdateDialog.cpp
     ui/dialogs/ResourceUpdateDialog.h
     ui/dialogs/InstallLoaderDialog.cpp

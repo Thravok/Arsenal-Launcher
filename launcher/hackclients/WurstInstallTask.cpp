@@ -2,6 +2,7 @@
 #include "WurstInstallTask.h"
 
 #include "Application.h"
+#include "BaritoneMaven.h"
 #include "FileSystem.h"
 #include "minecraft/MinecraftInstance.h"
 #include "minecraft/PackProfile.h"
@@ -14,8 +15,8 @@
 
 namespace HackClients {
 
-WurstInstallTask::WurstInstallTask(WurstRelease release)
-    : InstanceCreationTask(), m_release(std::move(release))
+WurstInstallTask::WurstInstallTask(WurstRelease release, bool installBaritone)
+    : InstanceCreationTask(), m_release(std::move(release)), m_installBaritone(installBaritone)
 {}
 
 bool WurstInstallTask::abort()
@@ -123,6 +124,19 @@ bool WurstInstallTask::downloadMods(const QString& modsDir)
                      .arg(enc, enc));
         if (!downloadFile(url, FS::PathCombine(modsDir, filename))) {
             setError(tr("Failed to download Fabric API %1.").arg(ver));
+            return false;
+        }
+    }
+
+    if (m_installBaritone) {
+        const QString mc = m_release.minecraftVersion;
+        const QString destName = QString("baritone-fabric-%1.jar").arg(mc);
+        QString baritoneError;
+        setStatus(tr("Downloading Baritone for Minecraft %1…").arg(mc));
+        if (!BaritoneMaven::downloadBaritoneForMinecraft(APPLICATION->network(), mc,
+                                                        FS::PathCombine(modsDir, destName), &baritoneError,
+                                                        [this](const QString& status) { setStatus(status); })) {
+            setError(baritoneError.isEmpty() ? tr("Failed to download Baritone for Wurst.") : baritoneError);
             return false;
         }
     }

@@ -677,3 +677,32 @@ QPushButton#refreshButton {
     padding-left: 12px;
     padding-right: 14px;
 }
+
+/* Progress dialog — per-download resource list */
+QScrollArea#taskProgressScrollArea {
+    background-color: @base@;
+    border: 1px solid @border@;
+    border-radius: @radius@px;
+}
+QScrollArea#taskProgressScrollArea > QWidget > QWidget {
+    background: transparent;
+}
+QWidget#taskProgressContainer {
+    background-color: transparent;
+}
+QWidget#SubTaskProgressBar {
+    background-color: @elevated@;
+    border: 1px solid @border@;
+    border-radius: @radius@px;
+}
+QWidget#SubTaskProgressBar QLabel#statusLabel {
+    color: @windowText@;
+    font-weight: 600;
+}
+QWidget#SubTaskProgressBar QLabel#statusDetailsLabel {
+    color: @mutedText@;
+}
+QWidget#SubTaskProgressBar QProgressBar {
+    min-height: 16px;
+    max-height: 18px;
+}

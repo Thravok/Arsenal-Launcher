@@ -120,7 +120,20 @@ void Request::addValidator(Validator* v)
 
 void Request::executeTask()
 {
-    setStatus(tr("Requesting %1").arg(StringUtils::truncateUrlHumanFriendly(m_url, 80)));
+    // Prefer a short, human-readable label over a long truncated URL in the UI.
+    QString displayName = objectName();
+    if (displayName.startsWith(QStringLiteral("FILE:")) || displayName.startsWith(QStringLiteral("BYTES:"))) {
+        displayName.clear();
+    }
+    if (displayName.isEmpty()) {
+        const auto fileName = QFileInfo(m_url.path()).fileName();
+        if (!fileName.isEmpty()) {
+            displayName = fileName;
+        } else {
+            displayName = StringUtils::truncateUrlHumanFriendly(m_url, 64);
+        }
+    }
+    setStatus(tr("Downloading %1").arg(displayName));
 
     if (m_network == nullptr) {
 #ifdef LAUNCHER_APPLICATION
@@ -218,7 +231,7 @@ void Request::onProgress(qint64 bytesReceived, qint64 bytesTotal)
         dlSpeedStr = tr("0 B/s");
     }
 
-    setDetails(dlProgress + "\n" + dlSpeedStr);
+    setDetails(tr("%1 · %2").arg(dlProgress, dlSpeedStr));
 
     setProgress(bytesReceived, bytesTotal);
 }

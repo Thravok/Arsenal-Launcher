@@ -20,6 +20,8 @@
 #include "SubTaskProgressBar.h"
 #include "ui_SubTaskProgressBar.h"
 
+#include <QFontMetrics>
+
 unique_qobject_ptr<SubTaskProgressBar> SubTaskProgressBar::create(QWidget* parent)
 {
     auto progress_bar = new SubTaskProgressBar(parent);
@@ -29,7 +31,10 @@ unique_qobject_ptr<SubTaskProgressBar> SubTaskProgressBar::create(QWidget* paren
 SubTaskProgressBar::SubTaskProgressBar(QWidget* parent) : QWidget(parent), ui(new Ui::SubTaskProgressBar)
 {
     ui->setupUi(this);
+    ui->statusLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    ui->statusDetailsLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
 }
+
 SubTaskProgressBar::~SubTaskProgressBar()
 {
     delete ui;
@@ -47,10 +52,44 @@ void SubTaskProgressBar::setValue(int value)
 
 void SubTaskProgressBar::setStatus(QString status)
 {
-    ui->statusLabel->setText(status);
+    m_fullStatus = status;
+    ui->statusLabel->setToolTip(status);
+    updateElidedStatus();
 }
 
 void SubTaskProgressBar::setDetails(QString details)
 {
-    ui->statusDetailsLabel->setText(details);
+    // Keep transfer stats on one line for a cleaner meta row.
+    const auto singleLine = details.simplified();
+    m_fullDetails = singleLine;
+    ui->statusDetailsLabel->setToolTip(singleLine);
+    ui->statusDetailsLabel->setVisible(!singleLine.isEmpty());
+    updateElidedDetails();
+}
+
+void SubTaskProgressBar::resizeEvent(QResizeEvent* event)
+{
+    QWidget::resizeEvent(event);
+    updateElidedStatus();
+    updateElidedDetails();
+}
+
+void SubTaskProgressBar::updateElidedStatus()
+{
+    if (m_fullStatus.isEmpty()) {
+        ui->statusLabel->setText({});
+        return;
+    }
+    const QFontMetrics metrics(ui->statusLabel->font());
+    ui->statusLabel->setText(metrics.elidedText(m_fullStatus, Qt::ElideMiddle, ui->statusLabel->width()));
+}
+
+void SubTaskProgressBar::updateElidedDetails()
+{
+    if (m_fullDetails.isEmpty()) {
+        ui->statusDetailsLabel->setText({});
+        return;
+    }
+    const QFontMetrics metrics(ui->statusDetailsLabel->font());
+    ui->statusDetailsLabel->setText(metrics.elidedText(m_fullDetails, Qt::ElideRight, ui->statusDetailsLabel->width()));
 }

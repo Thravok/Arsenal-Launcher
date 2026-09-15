@@ -21,6 +21,8 @@
 #include <QWidget>
 #include "QObjectPtr.h"
 
+class QResizeEvent;
+
 namespace Ui {
 class SubTaskProgressBar;
 }
@@ -39,6 +41,14 @@ class SubTaskProgressBar : public QWidget {
     void setStatus(QString status);
     void setDetails(QString details);
 
+   protected:
+    void resizeEvent(QResizeEvent* event) override;
+
    private:
+    void updateElidedStatus();
+    void updateElidedDetails();
+
     Ui::SubTaskProgressBar* ui;
+    QString m_fullStatus;
+    QString m_fullDetails;
 };

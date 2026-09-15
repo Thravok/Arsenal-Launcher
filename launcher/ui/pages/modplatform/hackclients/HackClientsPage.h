@@ -3,6 +3,8 @@
 
 #include <QWidget>
 
+class QCheckBox;
+
 #include "ui/pages/BasePage.h"
 #include <Application.h>
 
@@ -97,4 +99,6 @@ class HackClientsPage : public QWidget, public BasePage {
     QString m_wurstError;
     QString m_baritoneError;
     QString m_fdpError;
+
+    QCheckBox* m_wurstBaritoneCheck = nullptr;
 };

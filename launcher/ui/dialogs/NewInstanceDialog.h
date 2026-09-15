@@ -65,6 +65,8 @@ class NewInstanceDialog : public QDialog, public BasePageProvider {
     void setSuggestedPack(const QString& name, QString version, InstanceTask* task = nullptr);
     void setSuggestedIconFromFile(const QString& path, const QString& name);
     void setSuggestedIcon(const QString& key);
+    /** Prefill the Group combo (adds the name if missing). Used by Hack Clients. */
+    void setSuggestedGroup(const QString& group);
 
     InstanceTask* extractTask();
 

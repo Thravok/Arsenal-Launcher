@@ -343,6 +343,8 @@
         <file>128x128/instances/impact.png</file>
         <file>32x32/instances/wurst.png</file>
         <file>128x128/instances/wurst.png</file>
+        <file>32x32/instances/fdp.png</file>
+        <file>128x128/instances/fdp.png</file>
 
     </qresource>
 </RCC>

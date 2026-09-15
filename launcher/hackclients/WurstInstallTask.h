@@ -12,7 +12,7 @@ namespace HackClients {
 class WurstInstallTask final : public InstanceCreationTask {
     Q_OBJECT
    public:
-    explicit WurstInstallTask(WurstRelease release);
+    explicit WurstInstallTask(WurstRelease release, bool installBaritone = false);
     ~WurstInstallTask() override = default;
 
     bool abort() override;
@@ -26,6 +26,7 @@ class WurstInstallTask final : public InstanceCreationTask {
     bool downloadMods(const QString& modsDir);
 
     WurstRelease m_release;
+    bool m_installBaritone = false;
     NetJob::Ptr m_job;
 };
 

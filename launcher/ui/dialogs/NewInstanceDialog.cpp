@@ -303,14 +303,29 @@ void NewInstanceDialog::setSuggestedIconFromFile(const QString& path, const QStr
 
 void NewInstanceDialog::setSuggestedIcon(const QString& key)
 {
-    if (key == "default") {
+    // Persist the key so extractTask() / iconKey() apply it on creation.
+    // "default" is a real reset (e.g. Custom page), not a no-op.
+    m_instIconKey = key.isEmpty() ? QStringLiteral("default") : key;
+    m_importIcon = false;
+    ui->iconButton->setIcon(APPLICATION->icons()->getIcon(m_instIconKey));
+}
+
+void NewInstanceDialog::setSuggestedGroup(const QString& group)
+{
+    if (group.isEmpty()) {
         return;
     }
 
-    auto icon = APPLICATION->icons()->getIcon(key);
-    m_importIcon = false;
-
-    ui->iconButton->setIcon(icon);
+    int index = ui->groupBox->findText(group, Qt::MatchExactly);
+    if (index < 0) {
+        ui->groupBox->addItem(group);
+        index = ui->groupBox->findText(group, Qt::MatchExactly);
+    }
+    if (index >= 0) {
+        ui->groupBox->setCurrentIndex(index);
+    } else {
+        ui->groupBox->setEditText(group);
+    }
 }
 
 InstanceTask* NewInstanceDialog::extractTask()

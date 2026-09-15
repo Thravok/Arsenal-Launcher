@@ -92,6 +92,53 @@ struct LambdaRelease {
     QString baritoneVersion;      // e.g. "1.14.0"
 };
 
+struct MeteorAddonEntry {
+    QString name;
+    QString description;
+    QString minecraftVersion;
+    QStringList supportedVersions;
+    QStringList authors;
+    bool verified = false;
+    QString githubUrl;
+    QString latestReleaseUrl;
+    QStringList downloadUrls;
+    QString repoOwner;
+    QString repoName;
+
+    bool supportsMinecraft(const QString& mcVersion) const
+    {
+        if (mcVersion.isEmpty())
+            return true;
+        if (minecraftVersion == mcVersion)
+            return true;
+        for (const auto& v : supportedVersions) {
+            if (v == mcVersion)
+                return true;
+        }
+        return false;
+    }
+
+    QString pickJarDownloadUrl() const
+    {
+        auto acceptable = [](const QString& url) {
+            if (!url.endsWith(".jar", Qt::CaseInsensitive))
+                return false;
+            if (url.contains("-dev.jar", Qt::CaseInsensitive))
+                return false;
+            if (url.contains("-sources.jar", Qt::CaseInsensitive))
+                return false;
+            return true;
+        };
+        if (acceptable(latestReleaseUrl))
+            return latestReleaseUrl;
+        for (const auto& url : downloadUrls) {
+            if (acceptable(url))
+                return url;
+        }
+        return {};
+    }
+};
+
 struct WurstRelease {
     QString tagName;           // e.g. "v7.55.1-MC26.2" (matches Wurst7 git tag)
     QString wurstVersion;      // e.g. "v7.55.1"

@@ -44,6 +44,7 @@
 
 #include <QAbstractItemModel>
 #include <QAction>
+#include <QDialog>
 #include <QEvent>
 #include <QKeyEvent>
 #include <QMenu>
@@ -68,12 +69,18 @@
 #include "ui/dialogs/ProgressDialog.h"
 
 #include "hackclients/BaritoneModInstallTask.h"
+#include "hackclients/HackClientInstanceDetect.h"
+#include "ui/dialogs/MeteorAddonsDialog.h"
 #include "minecraft/MinecraftInstance.h"
 #include "modplatform/ModIndex.h"
 #include "minecraft/PackProfile.h"
 
-ModFolderPage::ModFolderPage(MinecraftInstance* inst, ModFolderModel* model, QWidget* parent, bool offerBaritoneInstall)
-    : ExternalResourcesPage(inst, model, parent), m_model(model)
+ModFolderPage::ModFolderPage(MinecraftInstance* inst,
+                               ModFolderModel* model,
+                               QWidget* parent,
+                               bool offerBaritoneInstall,
+                               bool offerMeteorAddons)
+    : ExternalResourcesPage(inst, model, parent), m_model(model), m_offerMeteorAddons(offerMeteorAddons)
 {
     ui->actionDownloadItem->setText(tr("Download Mods"));
     ui->actionDownloadItem->setToolTip(tr("Download mods from online mod platforms"));
@@ -88,6 +95,17 @@ ModFolderPage::ModFolderPage(MinecraftInstance* inst, ModFolderModel* model, QWi
             tr("Download Baritone for this instance's Minecraft version (Fabric only)"));
         ui->actionsToolbar->insertActionAfter(ui->actionDownloadItem, m_installBaritoneAction);
         connect(m_installBaritoneAction, &QAction::triggered, this, &ModFolderPage::installBaritone);
+    }
+
+    if (offerMeteorAddons) {
+        m_installMeteorAddonsAction = new QAction(tr("Meteor Addons"), this);
+        m_installMeteorAddonsAction->setToolTip(
+            tr("Browse community Meteor Client addons and install JARs into this instance (Meteor required)"));
+        if (m_installBaritoneAction)
+            ui->actionsToolbar->insertActionAfter(m_installBaritoneAction, m_installMeteorAddonsAction);
+        else
+            ui->actionsToolbar->insertActionAfter(ui->actionDownloadItem, m_installMeteorAddonsAction);
+        connect(m_installMeteorAddonsAction, &QAction::triggered, this, &ModFolderPage::installMeteorAddons);
     }
 
     ui->actionUpdateItem->setToolTip(tr("Try to check or update all selected mods (all mods if none are selected)"));
@@ -136,6 +154,16 @@ void ModFolderPage::updateActions()
     if (m_installBaritoneAction) {
         m_installBaritoneAction->setEnabled(m_instance && !m_instance->isRunning());
     }
+    if (m_installMeteorAddonsAction && m_instance) {
+        auto profile = m_instance->getPackProfile();
+        const auto loaders = profile->getModLoaders();
+        const bool fabric = loaders && loaders->testFlag(ModPlatform::ModLoaderType::Fabric);
+        const bool hasMeteor = HackClients::modsFolderHasMeteorClient(m_model->dir().absolutePath());
+        m_installMeteorAddonsAction->setVisible(fabric && hasMeteor);
+        m_installMeteorAddonsAction->setEnabled(!m_instance->isRunning());
+    } else if (m_installMeteorAddonsAction) {
+        m_installMeteorAddonsAction->setVisible(false);
+    }
 }
 
 void ModFolderPage::updateFrame(const QModelIndex& current, [[maybe_unused]] const QModelIndex& previous)
@@ -182,6 +210,40 @@ void ModFolderPage::installBaritone()
     });
     connect(task, &Task::aborted, task, &Task::deleteLater);
     loadDialog.execWithTask(task);
+}
+
+void ModFolderPage::installMeteorAddons()
+{
+    if (!m_instance || m_instance->isRunning()) {
+        return;
+    }
+
+    auto profile = m_instance->getPackProfile();
+    const auto loaders = profile->getModLoaders();
+    if (!loaders || !loaders->testFlag(ModPlatform::ModLoaderType::Fabric)) {
+        QMessageBox::information(
+            this, tr("Meteor Addons"),
+            tr("Meteor addons require a Fabric instance with Meteor Client installed in the mods folder."));
+        return;
+    }
+
+    const QString modsDir = m_model->dir().absolutePath();
+    if (!HackClients::modsFolderHasMeteorClient(modsDir)) {
+        QMessageBox::information(
+            this, tr("Meteor Addons"),
+            tr("No Meteor Client JAR was found in this instance's mods folder. Install Meteor first."));
+        return;
+    }
+
+    const QString mcVersion = profile->getComponentVersion("net.minecraft");
+    if (mcVersion.isEmpty()) {
+        QMessageBox::critical(this, tr("Meteor Addons"), tr("Could not determine the Minecraft version."));
+        return;
+    }
+
+    MeteorAddonsDialog dialog(mcVersion, modsDir, this);
+    if (dialog.exec() == QDialog::Accepted)
+        m_model->update();
 }
 
 void ModFolderPage::removeItems(const QItemSelection& selection)

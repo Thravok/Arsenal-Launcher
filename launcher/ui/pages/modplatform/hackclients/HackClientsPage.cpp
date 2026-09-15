@@ -14,6 +14,7 @@
 #include "hackclients/MeteorInstallTask.h"
 #include "hackclients/WurstInstallTask.h"
 
+#include <QCheckBox>
 #include <QComboBox>
 #include <QListWidgetItem>
 
@@ -52,7 +53,20 @@ HackClientsPage::HackClientsPage(NewInstanceDialog* dialog, QWidget* parent)
     ui->refreshButton->setIconSize(QSize(18, 18));
     ui->clientList->setIconSize(QSize(32, 32));
     ui->clientList->setSpacing(4);
+    ui->clientList->setMaximumWidth(200);
     ui->descriptionBrowser->setObjectName(QStringLiteral("hackClientDescription"));
+    ui->descriptionBrowser->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    // Prevent long status / version strings from expanding the New Instance dialog.
+    ui->statusLabel->setMinimumWidth(0);
+    ui->versionCombo->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    ui->versionCombo->setMinimumContentsLength(12);
+    ui->versionCombo->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+
+    m_wurstBaritoneCheck = new QCheckBox(tr("Also install Baritone (pathfinding)"), this);
+    m_wurstBaritoneCheck->setToolTip(tr("Adds standalone Fabric Baritone to the new instance's mods folder."));
+    m_wurstBaritoneCheck->setChecked(true);
+    m_wurstBaritoneCheck->setVisible(false);
+    ui->detailLayout->addWidget(m_wurstBaritoneCheck);
 
     m_impactProvider = new HackClients::ImpactReleasesProvider(APPLICATION->network(), this);
     m_lbProvider = new HackClients::LiquidBounceProvider(APPLICATION->network(), this);
@@ -129,7 +143,8 @@ void HackClientsPage::openedImpl()
     m_baritoneProvider->refresh(false);
     m_fdpProvider->refresh(false);
     m_wurstProvider->refresh(false);
-    suggestCurrent();
+    // Refresh description + OK enablement for the already-selected client (often LiquidBounce).
+    onClientSelectionChanged();
 }
 
 void HackClientsPage::onRefreshClicked()
@@ -210,16 +225,16 @@ void HackClientsPage::updateStatus()
     else
         parts << tr("Wurst: %1").arg(m_wurstError);
 
-    ui->statusLabel->setText(parts.join("  |  "));
+    // Use newlines so a long multi-client status never forces the New Instance dialog wider.
+    ui->statusLabel->setText(parts.join(QStringLiteral("\n")));
 }
 
 void HackClientsPage::onImpactReady()
 {
     m_impactOk = true;
     m_impactError.clear();
-    populateVersionCombo();
     updateStatus();
-    suggestCurrent();
+    onClientSelectionChanged();
 }
 
 void HackClientsPage::onImpactFailed(QString reason)
@@ -227,7 +242,7 @@ void HackClientsPage::onImpactFailed(QString reason)
     m_impactOk = false;
     m_impactError = reason;
     updateStatus();
-    suggestCurrent();
+    onClientSelectionChanged();
 }
 
 void HackClientsPage::onLiquidBounceReady()
@@ -235,7 +250,7 @@ void HackClientsPage::onLiquidBounceReady()
     m_lbOk = true;
     m_lbError.clear();
     updateStatus();
-    suggestCurrent();
+    onClientSelectionChanged();
 }
 
 void HackClientsPage::onLiquidBounceFailed(QString reason)
@@ -243,16 +258,15 @@ void HackClientsPage::onLiquidBounceFailed(QString reason)
     m_lbOk = false;
     m_lbError = reason;
     updateStatus();
-    suggestCurrent();
+    onClientSelectionChanged();
 }
 
 void HackClientsPage::onMeteorReady()
 {
     m_meteorOk = true;
     m_meteorError.clear();
-    populateVersionCombo();
     updateStatus();
-    suggestCurrent();
+    onClientSelectionChanged();
 }
 
 void HackClientsPage::onMeteorFailed(QString reason)
@@ -260,16 +274,15 @@ void HackClientsPage::onMeteorFailed(QString reason)
     m_meteorOk = false;
     m_meteorError = reason;
     updateStatus();
-    suggestCurrent();
+    onClientSelectionChanged();
 }
 
 void HackClientsPage::onLambdaReady()
 {
     m_lambdaOk = true;
     m_lambdaError.clear();
-    populateVersionCombo();
     updateStatus();
-    suggestCurrent();
+    onClientSelectionChanged();
 }
 
 void HackClientsPage::onLambdaFailed(QString reason)
@@ -277,16 +290,15 @@ void HackClientsPage::onLambdaFailed(QString reason)
     m_lambdaOk = false;
     m_lambdaError = reason;
     updateStatus();
-    suggestCurrent();
+    onClientSelectionChanged();
 }
 
 void HackClientsPage::onBaritoneReady()
 {
     m_baritoneOk = true;
     m_baritoneError.clear();
-    populateVersionCombo();
     updateStatus();
-    suggestCurrent();
+    onClientSelectionChanged();
 }
 
 void HackClientsPage::onBaritoneFailed(QString reason)
@@ -294,16 +306,15 @@ void HackClientsPage::onBaritoneFailed(QString reason)
     m_baritoneOk = false;
     m_baritoneError = reason;
     updateStatus();
-    suggestCurrent();
+    onClientSelectionChanged();
 }
 
 void HackClientsPage::onFDPReady()
 {
     m_fdpOk = true;
     m_fdpError.clear();
-    populateVersionCombo();
     updateStatus();
-    suggestCurrent();
+    onClientSelectionChanged();
 }
 
 void HackClientsPage::onFDPFailed(QString reason)
@@ -311,16 +322,15 @@ void HackClientsPage::onFDPFailed(QString reason)
     m_fdpOk = false;
     m_fdpError = reason;
     updateStatus();
-    suggestCurrent();
+    onClientSelectionChanged();
 }
 
 void HackClientsPage::onWurstReady()
 {
     m_wurstOk = true;
     m_wurstError.clear();
-    populateVersionCombo();
     updateStatus();
-    suggestCurrent();
+    onClientSelectionChanged();
 }
 
 void HackClientsPage::onWurstFailed(QString reason)
@@ -328,7 +338,7 @@ void HackClientsPage::onWurstFailed(QString reason)
     m_wurstOk = false;
     m_wurstError = reason;
     updateStatus();
-    suggestCurrent();
+    onClientSelectionChanged();
 }
 
 void HackClientsPage::populateVersionCombo()
@@ -412,6 +422,8 @@ void HackClientsPage::onClientSelectionChanged()
     bool needsVersion = clientNeedsVersion(kind);
     ui->versionLabel->setVisible(needsVersion);
     ui->versionCombo->setVisible(needsVersion);
+    if (m_wurstBaritoneCheck)
+        m_wurstBaritoneCheck->setVisible(kind == ClientWurst);
 
     populateVersionCombo();
 
@@ -447,6 +459,7 @@ void HackClientsPage::onClientSelectionChanged()
             "<a href=\"https://meteorclient.com\">meteorclient.com</a>.</p>"
             "<p><a href=\"https://github.com/MeteorDevelopment/meteor-client\">GitHub</a> · "
             "<a href=\"https://meteorclient.com/faq/installation\">Install guide</a></p>"
+            "<p>After creating a Meteor instance, use <b>Meteor Addons</b> on the instance Mods tab to install community addons.</p>"
             "<p>Using cheat clients on public servers can get your account banned.</p>"));
     } else if (kind == ClientLambda) {
         ui->descriptionBrowser->setHtml(tr(
@@ -496,6 +509,7 @@ void HackClientsPage::onClientSelectionChanged()
             "<a href=\"https://github.com/Wurst-Imperium/Wurst7\">Wurst7</a> tag.</p>"
             "<p><a href=\"https://www.wurstclient.net/\">Website</a> · "
             "<a href=\"https://www.wurstclient.net/tutorials/how-to-install/\">Install guide</a></p>"
+            "<p>Optional Baritone can be added from the checkbox below (same standalone Fabric build as the Mods tab).</p>"
             "<p>Using cheat clients on public servers can get your account banned.</p>"));
     } else {
         ui->descriptionBrowser->clear();
@@ -530,6 +544,7 @@ void HackClientsPage::suggestCurrent()
         auto* task = new HackClients::LiquidBounceInstallTask(build);
         dialog->setSuggestedPack(QStringLiteral("LiquidBounce"), build.lbVersion, task);
         dialog->setSuggestedIcon(QStringLiteral("liquidbounce"));
+        dialog->setSuggestedGroup(QStringLiteral("LiquidBounce"));
     } else if (kind == ClientMeteor) {
         if (!m_meteorOk || ui->versionCombo->currentIndex() < 0) {
             dialog->setSuggestedPack();
@@ -544,6 +559,7 @@ void HackClientsPage::suggestCurrent()
         auto* task = new HackClients::MeteorInstallTask(build);
         dialog->setSuggestedPack(QStringLiteral("Meteor"), build.instanceVersionLabel(), task);
         dialog->setSuggestedIcon(QStringLiteral("meteor"));
+        dialog->setSuggestedGroup(QStringLiteral("Meteor"));
     } else if (kind == ClientLambda) {
         if (!m_lambdaOk || ui->versionCombo->currentIndex() < 0) {
             dialog->setSuggestedPack();
@@ -558,6 +574,7 @@ void HackClientsPage::suggestCurrent()
         auto* task = new HackClients::LambdaInstallTask(release);
         dialog->setSuggestedPack(QStringLiteral("Lambda"), release.instanceVersionLabel(), task);
         dialog->setSuggestedIcon(QStringLiteral("lambda"));
+        dialog->setSuggestedGroup(QStringLiteral("Lambda"));
     } else if (kind == ClientImpact) {
         if (!m_impactOk || ui->versionCombo->currentIndex() < 0) {
             dialog->setSuggestedPack();
@@ -578,6 +595,7 @@ void HackClientsPage::suggestCurrent()
         auto* task = new HackClients::ImpactInstallTask(release);
         dialog->setSuggestedPack(QStringLiteral("Impact"), release.instanceVersionLabel(), task);
         dialog->setSuggestedIcon(QStringLiteral("impact"));
+        dialog->setSuggestedGroup(QStringLiteral("Impact"));
     } else if (kind == ClientBaritone) {
         if (!m_baritoneOk || ui->versionCombo->currentIndex() < 0) {
             dialog->setSuggestedPack();
@@ -592,6 +610,7 @@ void HackClientsPage::suggestCurrent()
         auto* task = new HackClients::BaritoneInstallTask(release);
         dialog->setSuggestedPack(QStringLiteral("Baritone"), release.minecraftVersion, task);
         dialog->setSuggestedIcon(QStringLiteral("loadermods"));
+        dialog->setSuggestedGroup(QStringLiteral("Baritone"));
     } else if (kind == ClientFDP) {
         if (!m_fdpOk || ui->versionCombo->currentIndex() < 0) {
             dialog->setSuggestedPack();
@@ -606,6 +625,7 @@ void HackClientsPage::suggestCurrent()
         auto* task = new HackClients::FDPInstallTask(release);
         dialog->setSuggestedPack(QStringLiteral("FDPClient"), release.instanceVersionLabel(), task);
         dialog->setSuggestedIcon(QStringLiteral("fdp"));
+        dialog->setSuggestedGroup(QStringLiteral("FDPClient"));
     } else if (kind == ClientWurst) {
         if (!m_wurstOk || ui->versionCombo->currentIndex() < 0) {
             dialog->setSuggestedPack();
@@ -617,9 +637,10 @@ void HackClientsPage::suggestCurrent()
             dialog->setSuggestedPack();
             return;
         }
-        auto* task = new HackClients::WurstInstallTask(release);
+        auto* task = new HackClients::WurstInstallTask(release, m_wurstBaritoneCheck && m_wurstBaritoneCheck->isChecked());
         dialog->setSuggestedPack(QStringLiteral("Wurst"), release.instanceVersionLabel(), task);
         dialog->setSuggestedIcon(QStringLiteral("wurst"));
+        dialog->setSuggestedGroup(QStringLiteral("Wurst"));
     } else {
         dialog->setSuggestedPack();
     }

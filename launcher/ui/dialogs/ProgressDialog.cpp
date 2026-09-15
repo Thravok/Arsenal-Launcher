@@ -107,7 +107,7 @@ void ProgressDialog::updateSize(bool recenterParent)
     if (ui->skipButton->isVisible())
         minHeight += ui->skipButton->height() + ui->verticalLayout->spacing();
     minHeight = std::max(minHeight, 60);
-    QSize minSize = QSize(480, minHeight);
+    QSize minSize = QSize(520, minHeight);
 
     setMinimumSize(minSize);
     adjustSize();
@@ -217,7 +217,10 @@ void ProgressDialog::changeStatus([[maybe_unused]] const QString& status)
 {
     ui->globalStatusLabel->setText(m_task->getStatus());
     ui->globalStatusLabel->adjustSize();
-    ui->globalStatusDetailsLabel->setText(m_task->getDetails());
+
+    const auto details = m_task->getDetails().simplified();
+    ui->globalStatusDetailsLabel->setText(details);
+    ui->globalStatusDetailsLabel->setVisible(!details.isEmpty());
     ui->globalStatusDetailsLabel->adjustSize();
 
     updateSize();
@@ -227,7 +230,22 @@ void ProgressDialog::addTaskProgress(TaskStepProgress const& progress)
 {
     SubTaskProgressBar* task_bar = new SubTaskProgressBar(this);
     taskProgress.insert(progress.uid, task_bar);
-    ui->taskProgressLayout->addWidget(task_bar);
+
+    // Keep active downloads packed to the top of the scroll area.
+    auto* layout = ui->taskProgressLayout;
+    if (layout->count() == 0) {
+        layout->addWidget(task_bar);
+        layout->addStretch(1);
+        return;
+    }
+
+    auto* last = layout->itemAt(layout->count() - 1);
+    if (last && last->spacerItem()) {
+        layout->insertWidget(layout->count() - 1, task_bar);
+    } else {
+        layout->addWidget(task_bar);
+        layout->addStretch(1);
+    }
 }
 
 void ProgressDialog::changeStepProgress(TaskStepProgress const& task_progress)

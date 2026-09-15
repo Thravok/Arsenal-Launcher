@@ -19,4 +19,10 @@ Wurst Client v7 JARs are listed from GitHub (`Wurst-Imperium/Wurst-MCX2` release
 
 **Baritone** — lists Minecraft versions from [rfresh2 Baritone Maven](https://maven.2b2t.vc/releases/com/github/rfresh2/baritone-fabric/) (newer releases) plus official [cabaletta/baritone](https://github.com/cabaletta/baritone/releases) standalone Fabric builds for older versions (e.g. 1.16.5). Creates a Fabric instance and downloads Baritone. Existing Fabric instances can use **Install Baritone** on the Mods tab.
 
+**Meteor addons** — on a Fabric instance that already has a Meteor Client JAR in `mods/`, the Mods tab shows **Meteor Addons**. The catalog is fetched from the community list maintained by [meteor-addon-scanner](https://github.com/cqb13/meteor-addon-scanner) (`addons/addons.json`). Direct release JAR URLs are downloaded into `mods/`. Skip `-dev.jar` and `-sources.jar` assets when picking downloads.
+
+**Wurst + Baritone** — when creating a Wurst instance, optional **Also install Baritone** adds the same standalone Fabric Baritone build used elsewhere.
+
+LiquidBounce scripts/themes and Impact companion mods are not automated here: LB marketplace installs run in-game; Impact bundles Baritone via its installer.
+
 All clients are third-party software; Arsenal Launcher only automates their documented install flows.
