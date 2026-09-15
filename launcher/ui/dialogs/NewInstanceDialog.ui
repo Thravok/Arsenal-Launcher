@@ -86,6 +86,19 @@
     </layout>
    </item>
    <item>
+    <widget class="QCheckBox" name="installArsenalUtilitiesCheck">
+     <property name="text">
+      <string>Install Arsenal utilities</string>
+     </property>
+     <property name="toolTip">
+      <string>When enabled, installs Arsenal NameProtect into Fabric instances after creation (client-side name aliases). Ignored for non-Fabric loaders.</string>
+     </property>
+     <property name="checked">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item>
     <widget class="Line" name="line">
      <property name="orientation">
       <enum>Qt::Orientation::Horizontal</enum>
@@ -99,6 +112,7 @@
   <tabstop>instNameTextBox</tabstop>
   <tabstop>groupBox</tabstop>
   <tabstop>instDirBox</tabstop>
+  <tabstop>installArsenalUtilitiesCheck</tabstop>
  </tabstops>
  <resources/>
  <connections/>

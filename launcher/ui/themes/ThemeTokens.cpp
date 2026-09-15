@@ -17,17 +17,17 @@ namespace ThemeTokens {
 Tokens dark()
 {
     Tokens t;
-    t.window = QColor(0x0b, 0x0e, 0x14);
+    t.window = QColor(0x0b, 0x0e, 0x14, 210);
     t.windowText = QColor(0xe8, 0xea, 0xed);
     t.base = QColor(0x0f, 0x13, 0x1a);
-    t.alternateBase = QColor(0x1c, 0x23, 0x30);
+    t.alternateBase = QColor(0x1c, 0x23, 0x30, 160);
     t.elevated = QColor(0x16, 0x1b, 0x24);
     t.border = QColor(0x2a, 0x35, 0x48);
     t.mutedText = QColor(0x8b, 0x95, 0xa8);
-    t.toolTipBase = QColor(0x16, 0x1b, 0x24);
+    t.toolTipBase = QColor(0x16, 0x1b, 0x24, 230);
     t.toolTipText = QColor(0xf0, 0xf2, 0xf5);
     t.text = QColor(0xe8, 0xea, 0xed);
-    t.button = QColor(0x1c, 0x23, 0x30);
+    t.button = QColor(0x1c, 0x23, 0x30, 200);
     t.buttonText = QColor(0xe8, 0xea, 0xed);
     t.brightText = QColor(0xff, 0x6b, 0x6b);
     t.link = QColor(0x5b, 0x8c, 0xff);
@@ -37,25 +37,33 @@ Tokens dark()
     t.highlightedText = QColor(0xff, 0xff, 0xff);
     t.placeholderText = QColor(0x6b, 0x72, 0x80);
     t.danger = QColor(0xe0, 0x5a, 0x5a);
+    t.success = QColor(0x2f, 0xbf, 0x71);
     t.fade = QColor(0x0b, 0x0e, 0x14);
     t.fadeAmount = 0.45;
+
+    t.glassFill = QColor(0x0f, 0x13, 0x1a, 180);
+    t.glassElevated = QColor(0x16, 0x1b, 0x24, 200);
+    t.glassBorder = QColor(255, 255, 255, 28);
+    t.glassHighlight = QColor(255, 255, 255, 48);
+
+    t.radius = 14;
     return t;
 }
 
 Tokens bright()
 {
     Tokens t;
-    t.window = QColor(0xf4, 0xf5, 0xf7);
+    t.window = QColor(0xf4, 0xf5, 0xf7, 220);
     t.windowText = QColor(0x1a, 0x1d, 0x23);
     t.base = QColor(0xff, 0xff, 0xff);
-    t.alternateBase = QColor(0xee, 0xf0, 0xf4);
+    t.alternateBase = QColor(0xee, 0xf0, 0xf4, 180);
     t.elevated = QColor(0xff, 0xff, 0xff);
     t.border = QColor(0xd0, 0xd5, 0xde);
     t.mutedText = QColor(0x5c, 0x64, 0x72);
-    t.toolTipBase = QColor(0x2a, 0x2f, 0x38);
+    t.toolTipBase = QColor(0x2a, 0x2f, 0x38, 235);
     t.toolTipText = QColor(0xf0, 0xf2, 0xf5);
     t.text = QColor(0x1a, 0x1d, 0x23);
-    t.button = QColor(0xee, 0xf0, 0xf4);
+    t.button = QColor(0xee, 0xf0, 0xf4, 220);
     t.buttonText = QColor(0x1a, 0x1d, 0x23);
     t.brightText = QColor(0xc0, 0x3a, 0x3a);
     t.link = QColor(0x3d, 0x6b, 0xd9);
@@ -65,8 +73,16 @@ Tokens bright()
     t.highlightedText = QColor(0xff, 0xff, 0xff);
     t.placeholderText = QColor(0x8a, 0x92, 0xa0);
     t.danger = QColor(0xc0, 0x3a, 0x3a);
+    t.success = QColor(0x28, 0xa7, 0x5e);
     t.fade = QColor(0xf4, 0xf5, 0xf7);
     t.fadeAmount = 0.5;
+
+    t.glassFill = QColor(255, 255, 255, 200);
+    t.glassElevated = QColor(255, 255, 255, 220);
+    t.glassBorder = QColor(0, 0, 0, 22);
+    t.glassHighlight = QColor(255, 255, 255, 180);
+
+    t.radius = 14;
     return t;
 }
 
@@ -97,28 +113,48 @@ static QString hex(const QColor& c)
     return c.name(QColor::HexRgb);
 }
 
+static QString rgba(const QColor& c)
+{
+    return QStringLiteral("rgba(%1, %2, %3, %4)")
+        .arg(c.red())
+        .arg(c.green())
+        .arg(c.blue())
+        .arg(c.alpha());
+}
+
+static void replaceColor(QString& out, const QString& name, const QColor& c)
+{
+    out.replace(QStringLiteral("@%1@").arg(name), hex(c));
+    out.replace(QStringLiteral("@%1Rgba@").arg(name), rgba(c));
+}
+
 QString substitute(const QString& stylesheetTemplate, const Tokens& t)
 {
     QString out = stylesheetTemplate;
-    out.replace(QStringLiteral("@window@"), hex(t.window));
-    out.replace(QStringLiteral("@windowText@"), hex(t.windowText));
-    out.replace(QStringLiteral("@base@"), hex(t.base));
-    out.replace(QStringLiteral("@alternateBase@"), hex(t.alternateBase));
-    out.replace(QStringLiteral("@elevated@"), hex(t.elevated));
-    out.replace(QStringLiteral("@border@"), hex(t.border));
-    out.replace(QStringLiteral("@mutedText@"), hex(t.mutedText));
-    out.replace(QStringLiteral("@text@"), hex(t.text));
-    out.replace(QStringLiteral("@button@"), hex(t.button));
-    out.replace(QStringLiteral("@buttonText@"), hex(t.buttonText));
-    out.replace(QStringLiteral("@link@"), hex(t.link));
-    out.replace(QStringLiteral("@accent@"), hex(t.accent));
-    out.replace(QStringLiteral("@accentText@"), hex(t.accentText));
-    out.replace(QStringLiteral("@highlight@"), hex(t.highlight));
-    out.replace(QStringLiteral("@highlightedText@"), hex(t.highlightedText));
-    out.replace(QStringLiteral("@toolTipBase@"), hex(t.toolTipBase));
-    out.replace(QStringLiteral("@toolTipText@"), hex(t.toolTipText));
-    out.replace(QStringLiteral("@placeholderText@"), hex(t.placeholderText));
-    out.replace(QStringLiteral("@danger@"), hex(t.danger));
+    replaceColor(out, QStringLiteral("window"), t.window);
+    replaceColor(out, QStringLiteral("windowText"), t.windowText);
+    replaceColor(out, QStringLiteral("base"), t.base);
+    replaceColor(out, QStringLiteral("alternateBase"), t.alternateBase);
+    replaceColor(out, QStringLiteral("elevated"), t.elevated);
+    replaceColor(out, QStringLiteral("border"), t.border);
+    replaceColor(out, QStringLiteral("mutedText"), t.mutedText);
+    replaceColor(out, QStringLiteral("text"), t.text);
+    replaceColor(out, QStringLiteral("button"), t.button);
+    replaceColor(out, QStringLiteral("buttonText"), t.buttonText);
+    replaceColor(out, QStringLiteral("link"), t.link);
+    replaceColor(out, QStringLiteral("accent"), t.accent);
+    replaceColor(out, QStringLiteral("accentText"), t.accentText);
+    replaceColor(out, QStringLiteral("highlight"), t.highlight);
+    replaceColor(out, QStringLiteral("highlightedText"), t.highlightedText);
+    replaceColor(out, QStringLiteral("toolTipBase"), t.toolTipBase);
+    replaceColor(out, QStringLiteral("toolTipText"), t.toolTipText);
+    replaceColor(out, QStringLiteral("placeholderText"), t.placeholderText);
+    replaceColor(out, QStringLiteral("danger"), t.danger);
+    replaceColor(out, QStringLiteral("success"), t.success);
+    replaceColor(out, QStringLiteral("glassFill"), t.glassFill);
+    replaceColor(out, QStringLiteral("glassElevated"), t.glassElevated);
+    replaceColor(out, QStringLiteral("glassBorder"), t.glassBorder);
+    replaceColor(out, QStringLiteral("glassHighlight"), t.glassHighlight);
     out.replace(QStringLiteral("@radius@"), QString::number(t.radius));
     out.replace(QStringLiteral("@spacing@"), QString::number(t.spacing));
     out.replace(QStringLiteral("@controlHeight@"), QString::number(t.controlHeight));

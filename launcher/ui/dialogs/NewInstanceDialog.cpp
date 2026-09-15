@@ -146,7 +146,7 @@ NewInstanceDialog::NewInstanceDialog(const QString& initialGroup,
 
     if (APPLICATION->settings()->get("NewInstanceGeometry").isValid()) {
         restoreGeometry(QByteArray::fromBase64(APPLICATION->settings()->get("NewInstanceGeometry").toString().toUtf8()));
-    } else {
+    } else if (parent) {
         auto* screen = parent->screen();
         auto geometry = screen->availableSize();
         resize(width(), qMin(geometry.height() - 50, 710));
@@ -375,6 +375,11 @@ QString NewInstanceDialog::iconKey() const
 QString NewInstanceDialog::instDir() const
 {
     return ui->instDirBox->currentData().toString();
+}
+
+bool NewInstanceDialog::installArsenalUtilities() const
+{
+    return ui->installArsenalUtilitiesCheck->isChecked();
 }
 
 void NewInstanceDialog::on_iconButton_clicked()

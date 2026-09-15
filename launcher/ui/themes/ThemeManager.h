@@ -75,8 +75,18 @@ class ThemeManager {
     void setTitlebarColorOfAllWindowsOnMac(QColor color);
     // On non-Mac systems, this is a no-op.
     void stopSettingNewWindowColorsOnMac();
+
+    /**
+     * Enable macOS backdrop blur behind main-window Qt content.
+     * Keeps a normal draggable titlebar. No-op on other platforms.
+     */
+    void enableWindowVibrancyOnMac(bool enabled);
+    void setWindowVibrancyOnMac(WId windowId, bool enabled, bool darkAppearance);
+
 #ifdef Q_OS_MACOS
     NSObject* m_windowTitlebarObserver = nullptr;
+    bool m_windowVibrancyEnabled = false;
+    bool m_windowVibrancyDark = true;
 #endif
 
     const QStringList builtinIcons{"lucide",     "pe_colored", "pe_light", "pe_dark", "pe_blue",    "breeze_light",

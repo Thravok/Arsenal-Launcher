@@ -1,32 +1,34 @@
 /* Arsenal Launcher shared stylesheet — placeholders substituted by ThemeTokens::substitute */
+/* Glass surfaces use @nameRgba@ so alpha survives substitution. */
 
 QToolTip {
     color: @toolTipText@;
-    background-color: @toolTipBase@;
-    border: 1px solid @border@;
+    background-color: @toolTipBaseRgba@;
+    border: 1px solid @glassBorderRgba@;
     border-radius: @radius@px;
     padding: 6px 10px;
 }
 
 QMainWindow, QDialog {
-    background-color: @window@;
+    background-color: @windowRgba@;
     color: @windowText@;
 }
 
 QMenuBar {
-    background-color: @elevated@;
+    background-color: @glassElevatedRgba@;
     color: @windowText@;
-    border-bottom: 1px solid @border@;
+    border-bottom: 1px solid @glassBorderRgba@;
     padding: 2px;
     spacing: 2px;
 }
 QMenuBar::item {
     background: transparent;
     padding: 6px 10px;
-    border-radius: 4px;
+    border-radius: 6px;
 }
 QMenuBar::item:selected {
-    background-color: @alternateBase@;
+    background-color: @alternateBaseRgba@;
+    border: 1px solid @glassBorderRgba@;
 }
 QMenuBar::item:pressed {
     background-color: @highlight@;
@@ -34,16 +36,16 @@ QMenuBar::item:pressed {
 }
 
 QMenu {
-    background-color: @elevated@;
+    background-color: @glassElevatedRgba@;
     color: @windowText@;
-    border: 1px solid @border@;
+    border: 1px solid @glassBorderRgba@;
     border-radius: @radius@px;
     padding: 4px;
     menu-scrollable: 1;
 }
 QMenu::item {
     padding: 6px 24px 6px 12px;
-    border-radius: 4px;
+    border-radius: 6px;
 }
 QMenu::item:selected {
     background-color: @highlight@;
@@ -51,44 +53,44 @@ QMenu::item:selected {
 }
 QMenu::separator {
     height: 1px;
-    background: @border@;
+    background: @glassBorderRgba@;
     margin: 4px 8px;
 }
 
 QToolBar {
-    background-color: @elevated@;
+    background-color: @glassElevatedRgba@;
     border: none;
-    border-bottom: 1px solid @border@;
+    border-bottom: 1px solid @glassBorderRgba@;
     spacing: 6px;
     padding: 6px 10px;
 }
 QFrame#instanceChromeBar {
     background-color: transparent;
     border: none;
-    border-bottom: 1px solid @border@;
-    padding: 0 0 8px 0;
-    min-height: 40px;
+    border-bottom: 1px solid @glassBorderRgba@;
+    padding: 4px 4px 10px 4px;
+    min-height: 44px;
 }
 QFrame#instanceChromeSeparator {
-    background: @border@;
+    background: @glassBorderRgba@;
     max-width: 1px;
     min-width: 1px;
-    margin: 4px 8px;
+    margin: 6px 10px;
 }
 QFrame#instanceChromeBar QToolButton#accountMenuButton {
-    background-color: @elevated@;
-    border: 1px solid @border@;
+    background-color: @glassElevatedRgba@;
+    border: 1px solid @glassBorderRgba@;
     border-radius: @radius@px;
-    padding: 6px 14px 6px 8px;
+    padding: 6px 16px 6px 10px;
     min-height: @controlHeight@px;
     font-weight: 600;
 }
 QFrame#instanceChromeBar QToolButton#accountMenuButton:hover {
-    background-color: @alternateBase@;
-    border-color: @mutedText@;
+    background-color: @alternateBaseRgba@;
+    border-color: @glassHighlightRgba@;
 }
 QFrame#instanceChromeBar QToolButton#accountMenuButton:pressed {
-    background-color: @base@;
+    background-color: @glassFillRgba@;
 }
 
 QFrame#instanceChromeBar QToolButton {
@@ -100,33 +102,36 @@ QFrame#instanceChromeBar QToolButton {
     font-weight: 500;
 }
 QFrame#instanceChromeBar QToolButton:hover {
-    background-color: @elevated@;
-    border-color: @border@;
+    background-color: @glassElevatedRgba@;
+    border-color: @glassBorderRgba@;
 }
 QFrame#instanceChromeBar QToolButton:pressed {
-    background-color: @alternateBase@;
+    background-color: @alternateBaseRgba@;
 }
 QToolButton#mainToolbarFoldersButton {
     padding: 6px 12px;
 }
 QToolBar::separator {
-    background: @border@;
+    background: @glassBorderRgba@;
     width: 1px;
     margin: 4px 6px;
 }
 
 QFrame#instanceGridFrame {
-    background-color: @base@;
+    background-color: @glassFillRgba@;
     border: none;
-    padding: 0;
+    padding: 4px 8px 8px 8px;
 }
 
 QFrame#instanceActionPanel {
-    background-color: @elevated@;
-    border: none;
-    border-left: 1px solid @border@;
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                      stop:0 @glassHighlightRgba@,
+                                      stop:0.06 @glassElevatedRgba@,
+                                      stop:1 @glassElevatedRgba@);
+    border: 1px solid @glassBorderRgba@;
+    border-right: none;
     padding: 4px 0 4px 0;
-    margin: 8px 8px 8px 0;
+    margin: 10px 10px 10px 0;
     border-top-left-radius: @radius@px;
     border-bottom-left-radius: @radius@px;
 }
@@ -134,20 +139,23 @@ QFrame#instanceActionPanel {
 QLabel#instancePanelSubtitle {
     color: @mutedText@;
     font-size: 11px;
+    padding: 0 2px 4px 2px;
 }
 
 QPushButton#instancePanelName {
     color: @windowText@;
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 600;
     text-align: left;
-    padding: 4px 6px;
+    padding: 2px 4px;
+    background: transparent;
+    border: none;
 }
 
 QToolButton#launchPrimaryButton {
-    background-color: @accent@;
-    color: @accentText@;
-    border: 1px solid @accent@;
+    background-color: @success@;
+    color: #ffffff;
+    border: 1px solid @success@;
     border-radius: @radius@px;
     padding: 12px 16px;
     font-weight: 600;
@@ -155,32 +163,32 @@ QToolButton#launchPrimaryButton {
     min-height: 44px;
 }
 QToolButton#launchPrimaryButton:hover {
-    background-color: @highlight@;
-    border-color: @highlight@;
-    color: @accentText@;
+    background-color: #39c97a;
+    border-color: #39c97a;
+    color: #ffffff;
 }
 QToolButton#launchPrimaryButton:disabled {
-    background-color: @alternateBase@;
+    background-color: @alternateBaseRgba@;
     color: @mutedText@;
-    border-color: @border@;
+    border-color: @glassBorderRgba@;
 }
 QToolButton#launchPrimaryButton::menu-button {
-    background-color: @accent@;
-    border: 1px solid @accent@;
+    background-color: @success@;
+    border: 1px solid @success@;
     border-top-right-radius: @radius@px;
     border-bottom-right-radius: @radius@px;
-    border-left: 1px solid @accentText@;
+    border-left: 1px solid rgba(255, 255, 255, 0.35);
     padding: 12px 8px;
     width: 28px;
 }
 QToolButton#launchPrimaryButton::menu-button:hover {
-    background-color: @highlight@;
-    border-color: @highlight@;
+    background-color: #39c97a;
+    border-color: #39c97a;
 }
 QToolButton#launchPrimaryButton::menu-button:disabled {
-    background-color: @alternateBase@;
-    border-color: @border@;
-    border-left-color: @border@;
+    background-color: @alternateBaseRgba@;
+    border-color: @glassBorderRgba@;
+    border-left-color: @glassBorderRgba@;
 }
 QToolButton#launchPrimaryButton::menu-indicator {
     image: none;
@@ -194,31 +202,33 @@ QPushButton#instancePanelKillButton {
     border-radius: @radius@px;
     padding: 10px 14px;
     min-height: 44px;
+    background: transparent;
 }
 QPushButton#instancePanelKillButton:hover {
-    background-color: @alternateBase@;
-    border-color: @border@;
+    background-color: @alternateBaseRgba@;
+    border-color: @glassBorderRgba@;
 }
 QPushButton#instancePanelKillButton:disabled {
     color: @mutedText@;
 }
 
 QFrame#instanceAccountPicker {
-    background-color: @base@;
-    border: 1px solid @border@;
+    background-color: @glassFillRgba@;
+    border: 1px solid @glassBorderRgba@;
     border-radius: @radius@px;
+    min-height: 48px;
 }
 QFrame#instanceAccountPicker:hover {
-    background-color: @alternateBase@;
-    border-color: @accent@;
+    background-color: @alternateBaseRgba@;
+    border-color: @glassHighlightRgba@;
 }
 QFrame#instanceAccountPicker[launchBlocked="true"] {
     border-color: @danger@;
-    background-color: @elevated@;
+    background-color: @glassElevatedRgba@;
 }
 QFrame#instanceAccountPicker:disabled {
     color: @mutedText@;
-    background-color: @window@;
+    background-color: @windowRgba@;
 }
 
 QLabel#instanceAccountFace {
@@ -245,8 +255,8 @@ QToolButton#instanceAccountMenuButton {
     background: transparent;
 }
 QToolButton#instanceAccountMenuButton:hover {
-    background-color: @elevated@;
-    border-radius: 4px;
+    background-color: @glassElevatedRgba@;
+    border-radius: 6px;
 }
 QToolButton#instanceAccountMenuButton:disabled {
     color: @mutedText@;
@@ -275,10 +285,11 @@ QPushButton#instancePanelLinkButton {
     border: 1px solid transparent;
     border-radius: @radius@px;
     color: @windowText@;
+    background: transparent;
 }
 QPushButton#instancePanelLinkButton:hover {
-    background-color: @alternateBase@;
-    border-color: @border@;
+    background-color: @alternateBaseRgba@;
+    border-color: @glassBorderRgba@;
 }
 QPushButton#instancePanelLinkButton:disabled {
     color: @mutedText@;
@@ -293,19 +304,19 @@ QWidget#instancePanelActions {
 }
 
 QToolButton#accountMenuButton {
-    background-color: @elevated@;
-    border: 1px solid @border@;
+    background-color: @glassElevatedRgba@;
+    border: 1px solid @glassBorderRgba@;
     border-radius: @radius@px;
-    padding: 6px 14px 6px 8px;
+    padding: 6px 16px 6px 10px;
     min-height: @controlHeight@px;
     font-weight: 600;
 }
 QToolButton#accountMenuButton:hover {
-    background-color: @alternateBase@;
-    border-color: @mutedText@;
+    background-color: @alternateBaseRgba@;
+    border-color: @glassHighlightRgba@;
 }
 QToolButton#accountMenuButton:pressed {
-    background-color: @base@;
+    background-color: @glassFillRgba@;
 }
 QToolButton#accountMenuButton::menu-indicator {
     subcontrol-origin: padding;
@@ -317,26 +328,26 @@ QToolButton#accountMenuButton::menu-indicator {
 
 /* Instance toolbar account picker */
 QToolButton#instancePanelIconButton {
-    padding: 6px;
+    padding: 8px;
     border-radius: @radius@px;
-    background-color: @base@;
-    border: 1px solid @border@;
+    background-color: @glassFillRgba@;
+    border: 1px solid @glassBorderRgba@;
 }
 QToolButton#instancePanelIconButton:hover {
-    border-color: @accent@;
-    background-color: @alternateBase@;
+    border-color: @glassHighlightRgba@;
+    background-color: @alternateBaseRgba@;
 }
 QToolButton {
     background-color: transparent;
     color: @windowText@;
     border: 1px solid transparent;
-    border-radius: 6px;
+    border-radius: 8px;
     padding: 6px 10px;
     margin: 1px;
 }
 QToolButton:hover {
-    background-color: @alternateBase@;
-    border-color: @border@;
+    background-color: @alternateBaseRgba@;
+    border-color: @glassBorderRgba@;
 }
 QToolButton:pressed, QToolButton:checked {
     background-color: @highlight@;
@@ -345,25 +356,28 @@ QToolButton:pressed, QToolButton:checked {
 }
 
 QStatusBar {
-    background-color: @elevated@;
+    background-color: @glassElevatedRgba@;
     color: @mutedText@;
-    border-top: 1px solid @border@;
+    border-top: 1px solid @glassBorderRgba@;
 }
 QStatusBar::item {
     border: none;
 }
 
 QPushButton {
-    background-color: @button@;
+    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                      stop:0 @glassHighlightRgba@,
+                                      stop:0.12 @buttonRgba@,
+                                      stop:1 @buttonRgba@);
     color: @buttonText@;
-    border: 1px solid @border@;
+    border: 1px solid @glassBorderRgba@;
     border-radius: @radius@px;
     padding: 6px 14px;
     min-height: 22px;
 }
 QPushButton:hover {
-    background-color: @alternateBase@;
-    border-color: @mutedText@;
+    background-color: @alternateBaseRgba@;
+    border-color: @glassHighlightRgba@;
 }
 QPushButton:pressed {
     background-color: @highlight@;
@@ -372,7 +386,7 @@ QPushButton:pressed {
 }
 QPushButton:disabled {
     color: @mutedText@;
-    background-color: @window@;
+    background-color: @windowRgba@;
 }
 QPushButton:default, QPushButton[primary="true"] {
     background-color: @accent@;
@@ -390,9 +404,9 @@ QPushButton#searchButton[filterActive="true"] {
 }
 
 QLineEdit, QTextEdit, QPlainTextEdit, QSpinBox, QDoubleSpinBox, QComboBox {
-    background-color: @base@;
+    background-color: @glassFillRgba@;
     color: @text@;
-    border: 1px solid @border@;
+    border: 1px solid @glassBorderRgba@;
     border-radius: @radius@px;
     padding: 5px 8px;
     selection-background-color: @highlight@;
@@ -404,7 +418,7 @@ QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
 }
 QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled {
     color: @mutedText@;
-    background-color: @window@;
+    background-color: @windowRgba@;
 }
 
 QComboBox::drop-down {
@@ -412,9 +426,9 @@ QComboBox::drop-down {
     width: 24px;
 }
 QComboBox QAbstractItemView {
-    background-color: @elevated@;
+    background-color: @glassElevatedRgba@;
     color: @text@;
-    border: 1px solid @border@;
+    border: 1px solid @glassBorderRgba@;
     selection-background-color: @highlight@;
     selection-color: @highlightedText@;
     outline: 0;
@@ -430,8 +444,8 @@ QCheckBox::indicator, QRadioButton::indicator {
 }
 
 QGroupBox {
-    background-color: @elevated@;
-    border: 1px solid @border@;
+    background-color: @glassElevatedRgba@;
+    border: 1px solid @glassBorderRgba@;
     border-radius: @radius@px;
     margin-top: 12px;
     padding: 12px 10px 10px 10px;
@@ -445,36 +459,36 @@ QGroupBox::title {
 }
 
 QTabWidget::pane {
-    border: 1px solid @border@;
+    border: 1px solid @glassBorderRgba@;
     border-radius: @radius@px;
-    background-color: @elevated@;
+    background-color: @glassElevatedRgba@;
     top: -1px;
 }
 QTabBar::tab {
-    background-color: @window@;
+    background-color: @glassFillRgba@;
     color: @mutedText@;
-    border: 1px solid @border@;
+    border: 1px solid @glassBorderRgba@;
     border-bottom: none;
-    border-top-left-radius: 6px;
-    border-top-right-radius: 6px;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
     padding: 8px 14px;
     margin-right: 2px;
 }
 QTabBar::tab:selected {
-    background-color: @elevated@;
+    background-color: @glassElevatedRgba@;
     color: @windowText@;
     font-weight: 600;
 }
 QTabBar::tab:hover:!selected {
     color: @windowText@;
-    background-color: @alternateBase@;
+    background-color: @alternateBaseRgba@;
 }
 
 QListView, QTreeView, QTableView {
-    background-color: @base@;
-    alternate-background-color: @alternateBase@;
+    background-color: @glassFillRgba@;
+    alternate-background-color: @alternateBaseRgba@;
     color: @text@;
-    border: 1px solid @border@;
+    border: 1px solid @glassBorderRgba@;
     border-radius: @radius@px;
     outline: 0;
     selection-background-color: @highlight@;
@@ -482,10 +496,10 @@ QListView, QTreeView, QTableView {
 }
 QListView::item, QTreeView::item {
     padding: 4px;
-    border-radius: 4px;
+    border-radius: 6px;
 }
 QListView::item:hover, QTreeView::item:hover {
-    background-color: @alternateBase@;
+    background-color: @alternateBaseRgba@;
 }
 QListView::item:selected, QTreeView::item:selected {
     background-color: @highlight@;
@@ -495,9 +509,9 @@ QListView::item:selected, QTreeView::item:selected {
 /* Settings / instance page sidebar */
 QListView#pageList,
 QTreeView#pageList {
-    background-color: @elevated@;
+    background-color: @glassElevatedRgba@;
     border: none;
-    border-right: 1px solid @border@;
+    border-right: 1px solid @glassBorderRgba@;
     border-radius: 0;
     padding: 8px 6px;
     outline: 0;
@@ -506,7 +520,7 @@ QListView#pageList::item,
 QTreeView#pageList::item {
     padding: 8px 12px;
     margin: 2px 4px;
-    border-radius: 6px;
+    border-radius: 8px;
     min-height: 24px;
 }
 QListView#pageList::item:selected,
@@ -516,7 +530,7 @@ QTreeView#pageList::item:selected {
 }
 QListView#pageList::item:hover:!selected,
 QTreeView#pageList::item:hover:!selected {
-    background-color: @alternateBase@;
+    background-color: @alternateBaseRgba@;
 }
 QTreeView#pageList::branch {
     background: transparent;
@@ -531,14 +545,14 @@ QToolButton#morePlatformsButton {
     background-color: transparent;
     color: @mutedText@;
     border: none;
-    border-radius: 6px;
+    border-radius: 8px;
     padding: 8px 12px;
     margin: 2px 4px 8px 4px;
     min-height: 32px;
     text-align: left;
 }
 QToolButton#morePlatformsButton:hover {
-    background-color: @alternateBase@;
+    background-color: @alternateBaseRgba@;
     color: @windowText@;
 }
 QToolButton#morePlatformsButton[secondaryActive="true"] {
@@ -552,23 +566,23 @@ QToolButton#morePlatformsButton::menu-indicator {
 }
 
 QHeaderView::section {
-    background-color: @elevated@;
+    background-color: @glassElevatedRgba@;
     color: @mutedText@;
     border: none;
-    border-bottom: 1px solid @border@;
-    border-right: 1px solid @border@;
+    border-bottom: 1px solid @glassBorderRgba@;
+    border-right: 1px solid @glassBorderRgba@;
     padding: 6px 8px;
     font-weight: 600;
 }
 
 QScrollBar:vertical {
-    background: @window@;
+    background: transparent;
     width: 10px;
     margin: 0;
     border: none;
 }
 QScrollBar::handle:vertical {
-    background: @border@;
+    background: @glassBorderRgba@;
     border-radius: 5px;
     min-height: 24px;
 }
@@ -581,13 +595,13 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
     height: 0;
 }
 QScrollBar:horizontal {
-    background: @window@;
+    background: transparent;
     height: 10px;
     margin: 0;
     border: none;
 }
 QScrollBar::handle:horizontal {
-    background: @border@;
+    background: @glassBorderRgba@;
     border-radius: 5px;
     min-width: 24px;
 }
@@ -601,20 +615,20 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
 }
 
 QProgressBar {
-    background-color: @base@;
-    border: 1px solid @border@;
-    border-radius: 6px;
+    background-color: @glassFillRgba@;
+    border: 1px solid @glassBorderRgba@;
+    border-radius: 8px;
     text-align: center;
     color: @text@;
     min-height: 16px;
 }
 QProgressBar::chunk {
     background-color: @accent@;
-    border-radius: 5px;
+    border-radius: 7px;
 }
 
 QSplitter::handle {
-    background-color: @border@;
+    background-color: @glassBorderRgba@;
 }
 QSplitter::handle:horizontal {
     width: 1px;
@@ -630,13 +644,13 @@ QLabel#pageHeader {
 }
 
 QFrame#InfoFrame, QFrame#infoFrame {
-    background-color: @alternateBase@;
-    border: 1px solid @border@;
+    background-color: @glassElevatedRgba@;
+    border: 1px solid @glassBorderRgba@;
     border-radius: @radius@px;
     padding: 8px;
 }
 QFrame#ErrorFrame, QFrame#errorFrame {
-    background-color: @alternateBase@;
+    background-color: @glassElevatedRgba@;
     border: 1px solid @danger@;
     border-radius: @radius@px;
     padding: 8px;
@@ -648,14 +662,14 @@ QDialogButtonBox {
 
 /* Hack clients (New Instance) */
 QListWidget#clientList {
-    background-color: @elevated@;
-    border: 1px solid @border@;
+    background-color: @glassElevatedRgba@;
+    border: 1px solid @glassBorderRgba@;
     border-radius: @radius@px;
     padding: 6px;
     outline: none;
 }
 QListWidget#clientList::item {
-    border-radius: 6px;
+    border-radius: 8px;
     padding: 8px 10px;
     margin: 2px 0;
 }
@@ -664,11 +678,11 @@ QListWidget#clientList::item:selected {
     color: @highlightedText@;
 }
 QListWidget#clientList::item:hover:!selected {
-    background-color: @alternateBase@;
+    background-color: @alternateBaseRgba@;
 }
 QTextBrowser#hackClientDescription {
-    background-color: @elevated@;
-    border: 1px solid @border@;
+    background-color: @glassElevatedRgba@;
+    border: 1px solid @glassBorderRgba@;
     border-radius: @radius@px;
     padding: 10px;
     color: @windowText@;
@@ -680,8 +694,8 @@ QPushButton#refreshButton {
 
 /* Progress dialog — per-download resource list */
 QScrollArea#taskProgressScrollArea {
-    background-color: @base@;
-    border: 1px solid @border@;
+    background-color: @glassFillRgba@;
+    border: 1px solid @glassBorderRgba@;
     border-radius: @radius@px;
 }
 QScrollArea#taskProgressScrollArea > QWidget > QWidget {
@@ -691,8 +705,8 @@ QWidget#taskProgressContainer {
     background-color: transparent;
 }
 QWidget#SubTaskProgressBar {
-    background-color: @elevated@;
-    border: 1px solid @border@;
+    background-color: @glassElevatedRgba@;
+    border: 1px solid @glassBorderRgba@;
     border-radius: @radius@px;
 }
 QWidget#SubTaskProgressBar QLabel#statusLabel {

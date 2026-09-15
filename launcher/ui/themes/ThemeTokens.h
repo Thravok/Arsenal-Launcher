@@ -18,6 +18,8 @@
  * Shared design tokens for Arsenal Launcher widget themes.
  * Qt stylesheets have no CSS variables; placeholders like @accent@ are
  * substituted when building the final stylesheet string.
+ *
+ * Opaque colors use @name@ → #rrggbb. Colors with alpha use @nameRgba@ → rgba(...).
  */
 namespace ThemeTokens {
 
@@ -42,10 +44,20 @@ struct Tokens {
     QColor highlightedText;
     QColor placeholderText;
     QColor danger;
+    QColor success;
     QColor fade;
     double fadeAmount = 0.5;
 
-    int radius = 12;
+    /** Semi-transparent glass panel fill (content wells / grid). */
+    QColor glassFill;
+    /** Semi-transparent elevated glass (panels, menus, chrome). */
+    QColor glassElevated;
+    /** Hairline glass border (typically white/black at low alpha). */
+    QColor glassBorder;
+    /** Specular / top-edge highlight for glass surfaces. */
+    QColor glassHighlight;
+
+    int radius = 14;
     int spacing = 8;
     int controlHeight = 36;
     int sidebarRowHeight = 40;

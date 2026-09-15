@@ -185,6 +185,8 @@ void ThemeManager::initializeWidgets()
 void ThemeManager::setTitlebarColorOnMac(WId windowId, QColor color) {}
 void ThemeManager::setTitlebarColorOfAllWindowsOnMac(QColor color) {}
 void ThemeManager::stopSettingNewWindowColorsOnMac() {}
+void ThemeManager::enableWindowVibrancyOnMac(bool enabled) {}
+void ThemeManager::setWindowVibrancyOnMac(WId windowId, bool enabled, bool darkAppearance) {}
 #endif
 
 QList<IconTheme*> ThemeManager::getValidIconThemes()
@@ -246,6 +248,10 @@ void ThemeManager::setApplicationTheme(const QString& name, bool initial)
         themeDebugLog() << "applying theme" << theme->name();
         theme->apply(initial);
         setTitlebarColorOfAllWindowsOnMac(qApp->palette().window().color());
+        // Arsenal dark/bright use translucent QSS chrome; enable real macOS backdrop blur.
+        // System / custom themes keep solid window chrome.
+        const bool arsenalGlassTheme = (name == QLatin1String("dark") || name == QLatin1String("bright"));
+        enableWindowVibrancyOnMac(arsenalGlassTheme);
 
         m_logColors = theme->logColorScheme();
     } else {
