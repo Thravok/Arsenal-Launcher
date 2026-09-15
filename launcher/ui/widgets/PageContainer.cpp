@@ -39,16 +39,22 @@
 #include "BuildConfig.h"
 #include "PageContainer_p.h"
 
+#include <QAction>
 #include <QDialogButtonBox>
 #include <QGridLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListView>
+#include <QMenu>
 #include <QPushButton>
+#include <QSignalBlocker>
 #include <QSortFilterProxyModel>
 #include <QStackedLayout>
+#include <QStyle>
 #include <QStyledItemDelegate>
+#include <QToolButton>
 #include <QUrl>
+#include <QVBoxLayout>
 #include <utility>
 
 #include "settings/SettingsObject.h"
@@ -67,7 +73,7 @@ class PageEntryFilterModel : public QSortFilterProxyModel {
     {
         const QString pattern = filterRegularExpression().pattern();
         auto* const model = static_cast<PageModel*>(sourceModel());
-        auto* const page = model->pages().at(sourceRow);
+        auto* const page = model->sidebarPageAt(sourceRow);
         if (!page->shouldDisplay()) {
             return false;
         }
@@ -111,21 +117,43 @@ PageContainer::PageContainer(BasePageProvider* pageProvider, QString defaultId, 
     m_pageList->setModel(m_proxyModel);
     connect(m_pageList->selectionModel(), &QItemSelectionModel::currentRowChanged, this, &PageContainer::currentChanged);
     m_pageStack->setStackingMode(QStackedLayout::StackOne);
+    if (m_model->hasGroupedPages()) {
+        rebuildMorePlatformsMenu();
+    }
+
     m_pageList->setFocus();
     selectPage(std::move(defaultId));
 }
 
 bool PageContainer::selectPage(QString pageId)
 {
-    // now find what we want to have selected...
-    auto* page = m_model->findPageEntryById(pageId);
-    QModelIndex index;
-    if (page) {
-        index = m_proxyModel->mapFromSource(m_model->index(page->listIndex));
+    BasePage* page = m_model->findPageEntryById(pageId);
+    if (page && !page->shouldDisplay()) {
+        page = nullptr;
     }
-    if (!index.isValid()) {
-        index = m_proxyModel->index(0, 0);
+    if (!page && m_model->rowCount() > 0) {
+        page = m_model->sidebarPageAt(0);
     }
+    if (!page) {
+        return false;
+    }
+
+    if (!page->sidebarGroup().isEmpty()) {
+        QSignalBlocker blocker(m_pageList->selectionModel());
+        m_pageList->setCurrentIndex(QModelIndex());
+        setMoreButtonActivePage(page);
+        BasePage* previous = m_currentPage;
+        emit selectedPageChanged(previous, page);
+        showPage(page);
+        return true;
+    }
+
+    setMoreButtonActivePage(nullptr);
+    const int sidebarRow = m_model->sidebarRowForPage(page);
+    if (sidebarRow < 0) {
+        return false;
+    }
+    const QModelIndex index = m_proxyModel->mapFromSource(m_model->index(sidebarRow, 0));
     if (index.isValid()) {
         m_pageList->setCurrentIndex(index);
         return true;
@@ -151,13 +179,9 @@ const QList<BasePage*>& PageContainer::getPages() const
 void PageContainer::refreshContainer()
 {
     m_proxyModel->invalidate();
-    if (!m_currentPage->shouldDisplay()) {
-        auto index = m_proxyModel->index(0, 0);
-        if (index.isValid()) {
-            m_pageList->setCurrentIndex(index);
-        } else {
-            // FIXME: unhandled corner case: what to do when there's no page to select?
-        }
+    rebuildMorePlatformsMenu();
+    if (m_currentPage && !m_currentPage->shouldDisplay()) {
+        selectPage(QString());
     }
 }
 
@@ -184,9 +208,27 @@ void PageContainer::createUI()
     m_pageStack->setContentsMargins(0, 0, 0, 0);
     m_pageStack->addWidget(new QWidget(this));
 
+    m_sidebarColumn = new QWidget(this);
+    auto* sidebarLayout = new QVBoxLayout(m_sidebarColumn);
+    sidebarLayout->setContentsMargins(0, 0, 0, 0);
+    sidebarLayout->setSpacing(4);
+    sidebarLayout->addWidget(m_pageList, 1);
+
+    m_morePlatformsButton = new QToolButton(m_sidebarColumn);
+    m_morePlatformsButton->setObjectName(QStringLiteral("morePlatformsButton"));
+    m_morePlatformsButton->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    m_morePlatformsButton->setPopupMode(QToolButton::InstantPopup);
+    m_morePlatformsButton->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    m_morePlatformsButton->setIcon(style()->standardIcon(QStyle::SP_ArrowDown));
+    m_morePlatformsButton->setVisible(false);
+    sidebarLayout->addWidget(m_morePlatformsButton);
+
+    m_morePlatformsMenu = new QMenu(m_morePlatformsButton);
+    m_morePlatformsButton->setMenu(m_morePlatformsMenu);
+
     m_layout = new QGridLayout;
     m_layout->addLayout(headerHLayout, 0, 1, 1, 1);
-    m_layout->addWidget(m_pageList, 0, 0, 3, 1);
+    m_layout->addWidget(m_sidebarColumn, 0, 0, 3, 1);
     m_layout->addLayout(m_pageStack, 1, 1, 1, 1);
     m_layout->setColumnStretch(1, 4);
     m_layout->setContentsMargins(0, 0, 0, 0);
@@ -202,6 +244,56 @@ void PageContainer::retranslate()
     for (auto* page : m_model->pages()) {
         page->retranslate();
     }
+
+    if (m_morePlatformsButton) {
+        if (m_currentPage && !m_currentPage->sidebarGroup().isEmpty()) {
+            setMoreButtonActivePage(m_currentPage);
+        } else {
+            setMoreButtonActivePage(nullptr);
+        }
+        rebuildMorePlatformsMenu();
+    }
+}
+
+void PageContainer::rebuildMorePlatformsMenu()
+{
+    if (!m_morePlatformsMenu || !m_morePlatformsButton) {
+        return;
+    }
+
+    m_morePlatformsMenu->clear();
+    const bool hasGrouped = m_model->hasGroupedPages();
+    m_morePlatformsButton->setVisible(hasGrouped);
+    if (!hasGrouped) {
+        return;
+    }
+
+    for (BasePage* page : m_model->groupedPages()) {
+        if (!page->shouldDisplay()) {
+            continue;
+        }
+        auto* action = m_morePlatformsMenu->addAction(page->icon(), page->displayName());
+        action->setData(page->id());
+        connect(action, &QAction::triggered, this, [this, pageId = page->id()]() { selectPage(pageId); });
+    }
+}
+
+void PageContainer::setMoreButtonActivePage(BasePage* page)
+{
+    if (!m_morePlatformsButton) {
+        return;
+    }
+
+    const bool secondaryActive = page != nullptr;
+    if (secondaryActive) {
+        m_morePlatformsButton->setText(page->displayName());
+    } else {
+        m_morePlatformsButton->setText(tr("More platforms"));
+    }
+    m_morePlatformsButton->setProperty("secondaryActive", secondaryActive);
+    m_morePlatformsButton->style()->unpolish(m_morePlatformsButton);
+    m_morePlatformsButton->style()->polish(m_morePlatformsButton);
+    m_morePlatformsButton->update();
 }
 
 void PageContainer::addButtons(QWidget* buttons)
@@ -219,16 +311,12 @@ void PageContainer::useSidebarStyle(bool sidebar)
     m_pageList->setProperty("_kde_side_panel_view", sidebar);
 }
 
-void PageContainer::showPage(int row)
+void PageContainer::showPage(BasePage* page)
 {
     if (m_currentPage) {
         m_currentPage->closed();
     }
-    if (row != -1) {
-        m_currentPage = m_model->pages().at(row);
-    } else {
-        m_currentPage = nullptr;
-    }
+    m_currentPage = page;
     if (m_currentPage) {
         m_pageStack->setCurrentIndex(m_currentPage->stackIndex);
         m_header->setText(m_currentPage->displayName());
@@ -252,14 +340,19 @@ void PageContainer::help()
 
 void PageContainer::currentChanged(const QModelIndex& current)
 {
-    int selectedIndex = current.isValid() ? m_proxyModel->mapToSource(current).row() : -1;
+    if (!current.isValid()) {
+        return;
+    }
 
-    auto* selected = m_model->pages().at(selectedIndex);
-    auto* previous = m_currentPage;
+    const int selectedIndex = m_proxyModel->mapToSource(current).row();
+    BasePage* selected = m_model->sidebarPageAt(selectedIndex);
+    BasePage* previous = m_currentPage;
+
+    setMoreButtonActivePage(nullptr);
 
     emit selectedPageChanged(previous, selected);
 
-    showPage(selectedIndex);
+    showPage(selected);
 }
 
 bool PageContainer::prepareToClose()

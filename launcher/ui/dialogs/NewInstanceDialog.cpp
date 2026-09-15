@@ -66,6 +66,7 @@
 #include "ui/pages/modplatform/legacy_ftb/Page.h"
 #include "ui/pages/modplatform/modrinth/ModrinthPage.h"
 #include "ui/pages/modplatform/technic/TechnicPage.h"
+#include "ui/pages/modplatform/hackclients/HackClientsPage.h"
 #include "ui/widgets/PageContainer.h"
 
 NewInstanceDialog::NewInstanceDialog(const QString& initialGroup,
@@ -103,7 +104,7 @@ NewInstanceDialog::NewInstanceDialog(const QString& initialGroup,
     // move this below.
     m_buttons = new QDialogButtonBox(QDialogButtonBox::Help | QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
 
-    m_container = new PageContainer(this, {}, this);
+    m_container = new PageContainer(this, QStringLiteral("hackclients"), this);
     m_container->useSidebarStyle(false);
     m_container->setSizePolicy(QSizePolicy::Policy::Preferred, QSizePolicy::Policy::Expanding);
     m_container->layout()->setContentsMargins(0, 0, 0, 0);
@@ -192,6 +193,7 @@ QList<BasePage*> NewInstanceDialog::getPages()
 
     m_importPage = new ImportPage(this);
 
+    pages.append(new HackClientsPage(this));
     pages.append(new CustomPage(this));
     pages.append(m_importPage);
     pages.append(new AtlPage(this));

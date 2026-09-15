@@ -1,0 +1,6 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource prefix="/themes">
+        <file alias="arsenal.qss">arsenal.qss</file>
+    </qresource>
+</RCC>

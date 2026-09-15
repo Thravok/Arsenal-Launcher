@@ -49,6 +49,8 @@ class BasePage {
     virtual QString id() const = 0;
     virtual QString displayName() const = 0;
     virtual QIcon icon() const = 0;
+    /** Non-empty value nests this page under the More platforms menu (New Instance dialog). */
+    virtual QString sidebarGroup() const { return QString(); }
     virtual bool apply() { return true; }
     virtual bool shouldDisplay() const { return true; }
     virtual QString helpPage() const { return QString(); }

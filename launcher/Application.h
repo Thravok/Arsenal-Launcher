@@ -124,6 +124,8 @@ class Application : public QApplication {
 
     static QIcon logo();
 
+    QIcon getThemedIcon(const QString& name);
+
     ThemeManager* themeManager() { return m_themeManager.get(); }
 
     ExternalUpdater* updater() { return m_updater.get(); }
@@ -204,7 +206,6 @@ class Application : public QApplication {
     void updateAllowedChanged(bool status);
     void globalSettingsAboutToOpen();
     void globalSettingsApplied();
-    int currentCatChanged(int index);
 
     void oauthReplyRecieved(QVariantMap);
 

@@ -52,6 +52,7 @@
 
 #include "minecraft/auth/AccountData.h"
 #include "minecraft/auth/AuthFlow.h"
+#include "minecraft/auth/TheAlteningConfig.h"
 
 MinecraftAccount::MinecraftAccount(QObject* parent) : QObject(parent)
 {
@@ -71,6 +72,17 @@ MinecraftAccountPtr MinecraftAccount::createBlankMSA()
 {
     MinecraftAccountPtr account(new MinecraftAccount());
     account->data.type = AccountType::MSA;
+    return account;
+}
+
+MinecraftAccountPtr MinecraftAccount::createTheAlteningFromApiKey(const QString& apiKey)
+{
+    auto account = makeShared<MinecraftAccount>();
+    account->data.type = AccountType::TheAltening;
+    account->data.theAlteningApiKey = apiKey.trimmed();
+    account->data.minecraftEntitlement.canPlayMinecraft = true;
+    account->data.minecraftEntitlement.ownsMinecraft = true;
+    account->data.minecraftEntitlement.validity = Validity::Assumed;
     return account;
 }
 
@@ -105,12 +117,16 @@ QPixmap MinecraftAccount::getFace(int width, int height) const
     if (!skinTexture.loadFromData(data.minecraftProfile.skin.data, "PNG")) {
         return QPixmap();
     }
+    // Altening head CDN returns a pre-rendered avatar, not a skin texture to crop.
+    if (data.minecraftProfile.skin.url.contains(QStringLiteral("cdn.thealtening.com/skins/head/"))) {
+        return skinTexture.scaled(width, height, Qt::KeepAspectRatio, Qt::FastTransformation);
+    }
     QPixmap skin = QPixmap(8, 8);
     skin.fill(QColorConstants::Transparent);
     QPainter painter(&skin);
     painter.drawPixmap(0, 0, skinTexture.copy(8, 8, 8, 8));
     painter.drawPixmap(0, 0, skinTexture.copy(40, 8, 8, 8));
-    return skin.scaled(width, height, Qt::KeepAspectRatio);
+    return skin.scaled(width, height, Qt::KeepAspectRatio, Qt::FastTransformation);
 }
 
 shared_qobject_ptr<AuthFlow> MinecraftAccount::login(bool useDeviceCode)
@@ -168,6 +184,14 @@ void MinecraftAccount::authFailed(QString reason)
                 data.msaToken.refresh_token = QString();
                 data.msaToken.validity = Validity::None;
                 data.validity_ = Validity::None;
+            } else if (accountType() == AccountType::TheAltening) {
+                // Drop the short-lived access token only. Keep extra["userName"] (alt token)
+                // so Refresh can re-authenticate instead of staying permanently Expired.
+                data.yggdrasilToken.token = QString();
+                data.yggdrasilToken.validity = Validity::None;
+                if (data.yggdrasilToken.extra.value(QStringLiteral("userName")).toString().isEmpty()) {
+                    data.validity_ = Validity::None;
+                }
             } else {
                 data.yggdrasilToken.token = QString();
                 data.yggdrasilToken.validity = Validity::None;
@@ -249,8 +273,10 @@ void MinecraftAccount::fillSession(AuthSessionPtr session)
     session->uuid = data.profileId();
     if (session->uuid.isEmpty())
         session->uuid = uuidFromUsername(session->player_name).toString(QUuid::Id128);
-    // 'legacy' or 'mojang', depending on account type
     session->user_type = typeString();
+    if (data.type == AccountType::TheAltening) {
+        session->authlib_injector_base_url = TheAltening::AuthlibInjectorSentinel;
+    }
     if (!session->access_token.isEmpty()) {
         session->session = "token:" + data.accessToken() + ":" + data.profileId();
     } else {

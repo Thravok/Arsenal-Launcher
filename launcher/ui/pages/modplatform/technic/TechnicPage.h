@@ -62,6 +62,7 @@ class TechnicPage : public QWidget, public ModpackProviderBasePage {
     virtual QString displayName() const override { return "Technic"; }
     virtual QIcon icon() const override { return QIcon::fromTheme("technic"); }
     virtual QString id() const override { return "technic"; }
+    QString sidebarGroup() const override { return QStringLiteral("more"); }
     virtual QString helpPage() const override { return "Technic-platform"; }
     virtual bool shouldDisplay() const override;
     void retranslate() override;

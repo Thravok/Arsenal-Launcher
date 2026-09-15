@@ -67,7 +67,12 @@
 #include "tasks/Task.h"
 #include "ui/dialogs/ProgressDialog.h"
 
-ModFolderPage::ModFolderPage(MinecraftInstance* inst, ModFolderModel* model, QWidget* parent)
+#include "hackclients/BaritoneModInstallTask.h"
+#include "minecraft/MinecraftInstance.h"
+#include "modplatform/ModIndex.h"
+#include "minecraft/PackProfile.h"
+
+ModFolderPage::ModFolderPage(MinecraftInstance* inst, ModFolderModel* model, QWidget* parent, bool offerBaritoneInstall)
     : ExternalResourcesPage(inst, model, parent), m_model(model)
 {
     ui->actionDownloadItem->setText(tr("Download Mods"));
@@ -76,6 +81,14 @@ ModFolderPage::ModFolderPage(MinecraftInstance* inst, ModFolderModel* model, QWi
     ui->actionsToolbar->insertActionBefore(ui->actionAddItem, ui->actionDownloadItem);
 
     connect(ui->actionDownloadItem, &QAction::triggered, this, &ModFolderPage::downloadMods);
+
+    if (offerBaritoneInstall) {
+        m_installBaritoneAction = new QAction(tr("Install Baritone"), this);
+        m_installBaritoneAction->setToolTip(
+            tr("Download Baritone for this instance's Minecraft version (Fabric only)"));
+        ui->actionsToolbar->insertActionAfter(ui->actionDownloadItem, m_installBaritoneAction);
+        connect(m_installBaritoneAction, &QAction::triggered, this, &ModFolderPage::installBaritone);
+    }
 
     ui->actionUpdateItem->setToolTip(tr("Try to check or update all selected mods (all mods if none are selected)"));
     connect(ui->actionUpdateItem, &QAction::triggered, this, &ModFolderPage::updateMods);
@@ -117,12 +130,58 @@ bool ModFolderPage::shouldDisplay() const
     return true;
 }
 
+void ModFolderPage::updateActions()
+{
+    ExternalResourcesPage::updateActions();
+    if (m_installBaritoneAction) {
+        m_installBaritoneAction->setEnabled(m_instance && !m_instance->isRunning());
+    }
+}
+
 void ModFolderPage::updateFrame(const QModelIndex& current, [[maybe_unused]] const QModelIndex& previous)
 {
     auto sourceCurrent = m_filterModel->mapToSource(current);
     int row = sourceCurrent.row();
     const Mod& mod = m_model->at(row);
     ui->frame->updateWithMod(mod);
+}
+
+void ModFolderPage::installBaritone()
+{
+    if (!m_instance || m_instance->isRunning()) {
+        return;
+    }
+
+    auto profile = m_instance->getPackProfile();
+    const auto loaders = profile->getModLoaders();
+    if (!loaders || !loaders->testFlag(ModPlatform::ModLoaderType::Fabric)) {
+        QMessageBox::information(
+            this, tr("Install Baritone"),
+            tr("Baritone quick install is only supported on Fabric instances. "
+               "Add Fabric Loader on the Version page first."));
+        return;
+    }
+
+    const QString mcVersion = profile->getComponentVersion("net.minecraft");
+    if (mcVersion.isEmpty()) {
+        QMessageBox::critical(this, tr("Install Baritone"), tr("Could not determine the Minecraft version."));
+        return;
+    }
+
+    auto* task = new HackClients::BaritoneModInstallTask(m_model->dir().absolutePath(), mcVersion, QString(), this);
+
+    ProgressDialog loadDialog(this);
+    loadDialog.setSkipButton(true, tr("Abort"));
+    connect(task, &Task::failed, this, [this, task](QString reason) {
+        CustomMessageBox::selectable(this, tr("Install Baritone"), reason, QMessageBox::Critical)->show();
+        task->deleteLater();
+    });
+    connect(task, &Task::succeeded, this, [this, task]() {
+        m_model->update();
+        task->deleteLater();
+    });
+    connect(task, &Task::aborted, task, &Task::deleteLater);
+    loadDialog.execWithTask(task);
 }
 
 void ModFolderPage::removeItems(const QItemSelection& selection)

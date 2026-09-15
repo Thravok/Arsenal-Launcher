@@ -169,4 +169,7 @@ class MinecraftInstance : public BaseInstance {
     std::unique_ptr<TexturePackFolderModel> m_texture_pack_list;
     std::unique_ptr<DataPackFolderModel> m_data_pack_list;
     std::unique_ptr<WorldList> m_world_list;
+
+    mutable std::shared_ptr<QString> m_authlibinjector_javaagent = std::make_shared<QString>();
+    mutable std::shared_ptr<QStringList> m_authlibinjector_jvm_args = std::make_shared<QStringList>();
 };

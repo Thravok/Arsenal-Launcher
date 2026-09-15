@@ -44,14 +44,20 @@ class PageModel : public QAbstractListModel {
     }
     virtual ~PageModel() {}
 
-    int rowCount(const QModelIndex& parent = QModelIndex()) const { return parent.isValid() ? 0 : m_pages.size(); }
+    int rowCount(const QModelIndex& parent = QModelIndex()) const
+    {
+        return parent.isValid() ? 0 : m_sidebarPages.size();
+    }
     QVariant data(const QModelIndex& index, int role = Qt::DisplayRole) const
     {
+        if (!index.isValid() || index.row() < 0 || index.row() >= m_sidebarPages.size())
+            return QVariant();
+        BasePage* page = m_sidebarPages.at(index.row());
         switch (role) {
             case Qt::DisplayRole:
-                return m_pages.at(index.row())->displayName();
+                return page->displayName();
             case Qt::DecorationRole: {
-                QIcon icon = m_pages.at(index.row())->icon();
+                QIcon icon = page->icon();
                 if (icon.isNull())
                     icon = m_emptyIcon;
                 // HACK: fixes icon stretching on windows. TODO: report Qt bug for this
@@ -64,21 +70,42 @@ class PageModel : public QAbstractListModel {
     void setPages(const QList<BasePage*>& pages)
     {
         beginResetModel();
-        m_pages = pages;
+        m_allPages = pages;
+        m_sidebarPages.clear();
+        m_groupedPages.clear();
+        int sidebarRow = 0;
+        for (BasePage* page : m_allPages) {
+            if (page->sidebarGroup().isEmpty()) {
+                page->listIndex = sidebarRow;
+                m_sidebarPages.append(page);
+                ++sidebarRow;
+            } else {
+                page->listIndex = -1;
+                m_groupedPages.append(page);
+            }
+        }
         endResetModel();
     }
-    const QList<BasePage*>& pages() const { return m_pages; }
+
+    const QList<BasePage*>& pages() const { return m_allPages; }
+    const QList<BasePage*>& groupedPages() const { return m_groupedPages; }
+    bool hasGroupedPages() const { return !m_groupedPages.isEmpty(); }
+
+    BasePage* sidebarPageAt(int row) const { return m_sidebarPages.at(row); }
+    int sidebarRowForPage(BasePage* page) const { return m_sidebarPages.indexOf(page); }
 
     BasePage* findPageEntryById(QString id)
     {
-        for (auto page : m_pages) {
+        for (auto* page : m_allPages) {
             if (page->id() == id)
                 return page;
         }
         return nullptr;
     }
 
-    QList<BasePage*> m_pages;
+    QList<BasePage*> m_allPages;
+    QList<BasePage*> m_sidebarPages;
+    QList<BasePage*> m_groupedPages;
     QIcon m_emptyIcon;
 };
 
@@ -86,6 +113,7 @@ class PageView : public QListView {
    public:
     PageView(QWidget* parent = 0) : QListView(parent)
     {
+        setObjectName(QStringLiteral("pageList"));
         setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Expanding);
         setItemDelegate(new PageViewDelegate(this));
         setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);

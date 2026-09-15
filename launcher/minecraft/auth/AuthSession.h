@@ -23,6 +23,8 @@ struct AuthSession {
     QString uuid;
     // 'msa' or 'offline', depending on account type
     QString user_type;
+    /** When set, ConfigureAuthlibInjector runs at launch (The Altening uses a local sentinel). */
+    QString authlib_injector_base_url;
     // the actual launch mode for this session
     LaunchMode launchMode;
 };

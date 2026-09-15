@@ -53,16 +53,35 @@
     <bool>false</bool>
    </attribute>
    <addaction name="actionAddMicrosoft"/>
+   <addaction name="actionAddAuthlibInjector"/>
+   <addaction name="actionGenerateAltening"/>
    <addaction name="actionAddOffline"/>
    <addaction name="actionRefresh"/>
    <addaction name="actionRemove"/>
    <addaction name="actionSetDefault"/>
    <addaction name="actionNoDefault"/>
-   <addaction name="actionMoveUp"/>
-   <addaction name="actionMoveDown"/>
    <addaction name="separator"/>
-   <addaction name="actionManageSkins"/>
+   <addaction name="actionUploadSkin"/>
+   <addaction name="actionDeleteSkin"/>
   </widget>
+  <action name="actionAddAuthlibInjector">
+   <property name="text">
+    <string>Add Authlib-&amp;Injector</string>
+   </property>
+  </action>
+  <action name="actionGenerateAltening">
+   <property name="text">
+    <string>&amp;Generate Altening Account</string>
+   </property>
+   <property name="toolTip">
+    <string>Generate a new The Altening alt. Set the API key in Settings → The Altening first. Refresh renews the selected alt’s session.</string>
+   </property>
+  </action>
+  <action name="actionRemove">
+   <property name="text">
+    <string>Remo&amp;ve</string>
+   </property>
+  </action>
   <action name="actionSetDefault">
    <property name="text">
     <string>&amp;Set Default</string>
@@ -76,12 +95,17 @@
     <string>&amp;No Default</string>
    </property>
   </action>
-  <action name="actionManageSkins">
+  <action name="actionUploadSkin">
    <property name="text">
-    <string>&amp;Manage Skins</string>
+    <string>&amp;Upload Skin</string>
+   </property>
+  </action>
+  <action name="actionDeleteSkin">
+   <property name="text">
+    <string>&amp;Delete Skin</string>
    </property>
    <property name="toolTip">
-    <string>Manage Skins</string>
+    <string>Delete the currently active skin and go back to the default one</string>
    </property>
   </action>
   <action name="actionAddMicrosoft">
@@ -100,21 +124,6 @@
    </property>
    <property name="toolTip">
     <string>Refresh the account tokens</string>
-   </property>
-  </action>
-  <action name="actionRemove">
-   <property name="text">
-    <string>Remo&amp;ve</string>
-   </property>
-  </action>
-  <action name="actionMoveUp">
-   <property name="text">
-    <string>Move &amp;Up</string>
-   </property>
-  </action>
-  <action name="actionMoveDown">
-   <property name="text">
-    <string>Move &amp;Down</string>
    </property>
   </action>
  </widget>

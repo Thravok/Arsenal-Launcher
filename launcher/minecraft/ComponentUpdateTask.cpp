@@ -131,9 +131,14 @@ static LoadResult loadComponent(ComponentPtr component, Task::Ptr& loadTask, Net
             component->m_loaded = true;
             result = LoadResult::LoadedLocal;
         } else {
+            // loadVersion() may return a BaseEntity task that is already in flight
+            // (shared across instances / startup meta loads). Starting it again
+            // hits Task::start()'s Running assert and aborts debug builds.
             loadTask = APPLICATION->metadataIndex()->loadVersion(component->m_uid, component->m_version, netmode);
-            loadTask->start();
-            if (netmode == Net::Mode::Online)
+            if (!loadTask->isRunning()) {
+                loadTask->start();
+            }
+            if (netmode == Net::Mode::Online || loadTask->isRunning())
                 result = LoadResult::RequiresRemote;
             else if (metaVersion->isLoaded())
                 result = LoadResult::LoadedLocal;

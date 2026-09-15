@@ -56,8 +56,10 @@
 #include <QApplication>
 #include <QButtonGroup>
 #include <QFileDialog>
+#include <QFrame>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QVBoxLayout>
 #include <QInputDialog>
 #include <QKeyEvent>
 #include <QLabel>
@@ -66,6 +68,7 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QProgressDialog>
+#include <QPushButton>
 #include <QShortcut>
 #include <QStatusBar>
 #include <QToolBar>
@@ -87,12 +90,12 @@
 #include <minecraft/auth/AccountList.h>
 #include <net/ApiRequest.h>
 #include <net/NetJob.h>
-#include <news/NewsChecker.h>
 #include <tools/BaseProfiler.h>
 #include <updater/ExternalUpdater.h>
 #include "InstanceWindow.h"
 
 #include "ui/GuiUtil.h"
+#include "ui/LaunchAccountUtils.h"
 #include "ui/ViewLogWindow.h"
 #include "ui/dialogs/AboutDialog.h"
 #include "ui/dialogs/CopyInstanceDialog.h"
@@ -103,7 +106,6 @@
 #include "ui/dialogs/IconPickerDialog.h"
 #include "ui/dialogs/ImportResourceDialog.h"
 #include "ui/dialogs/NewInstanceDialog.h"
-#include "ui/dialogs/NewsDialog.h"
 #include "ui/dialogs/ProgressDialog.h"
 #include "ui/dialogs/skins/SkinManageDialog.h"
 #include "ui/instanceview/InstanceDelegate.h"
@@ -111,7 +113,8 @@
 #include "ui/instanceview/InstanceView.h"
 #include "ui/themes/ITheme.h"
 #include "ui/themes/ThemeManager.h"
-#include "ui/widgets/LabeledToolButton.h"
+#include "ui/widgets/InstanceActionPanel.h"
+#include "minecraft/auth/AccountData.h"
 
 #include "minecraft/PackProfile.h"
 #include "minecraft/VersionFile.h"
@@ -150,63 +153,18 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
 {
     ui->setupUi(this);
 
+    applyThemedActionIcons();
+
     setWindowIcon(APPLICATION->logo());
     setWindowTitle(APPLICATION->applicationDisplayName());
 #ifndef QT_NO_ACCESSIBILITY
     setAccessibleName(BuildConfig.LAUNCHER_DISPLAYNAME);
 #endif
 
-    // instance toolbar stuff
+    enforceLegacyToolbarsHidden();
+
+    // export instance submenu (used by panel secondary actions)
     {
-        // Qt doesn't like vertical moving toolbars, so we have to force them...
-        // See https://github.com/PolyMC/PolyMC/issues/493
-        connect(ui->instanceToolBar, &QToolBar::orientationChanged, this,
-                [this](Qt::Orientation) { ui->instanceToolBar->setOrientation(Qt::Vertical); });
-
-        // if you try to add a widget to a toolbar in a .ui file
-        // qt designer will delete it when you save the file >:(
-        changeIconButton = new LabeledToolButton(this);
-        changeIconButton->setObjectName(QStringLiteral("changeIconButton"));
-        changeIconButton->setIcon(QIcon::fromTheme("news"));
-        changeIconButton->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-        connect(changeIconButton, &QToolButton::clicked, this, &MainWindow::on_actionChangeInstIcon_triggered);
-        ui->instanceToolBar->insertWidgetBefore(ui->actionLaunchInstance, changeIconButton);
-
-        renameButton = new LabeledToolButton(this);
-        renameButton->setObjectName(QStringLiteral("renameButton"));
-        renameButton->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-        connect(renameButton, &QToolButton::clicked, this, &MainWindow::on_actionRenameInstance_triggered);
-        ui->instanceToolBar->insertWidgetBefore(ui->actionLaunchInstance, renameButton);
-
-        ui->instanceToolBar->insertSeparator(ui->actionLaunchInstance);
-
-        // restore the instance toolbar settings
-        const auto setting_name = QString("WideBarVisibility_%1").arg(ui->instanceToolBar->objectName());
-        instanceToolbarSetting = APPLICATION->settings()->getOrRegisterSetting(setting_name);
-
-        ui->instanceToolBar->setVisibilityState(QByteArray::fromBase64(instanceToolbarSetting->get().toString().toUtf8()));
-
-        ui->instanceToolBar->addContextMenuAction(ui->newsToolBar->toggleViewAction());
-        ui->instanceToolBar->addContextMenuAction(ui->instanceToolBar->toggleViewAction());
-        ui->instanceToolBar->addContextMenuAction(ui->actionToggleStatusBar);
-        ui->instanceToolBar->addContextMenuAction(ui->actionLockToolbars);
-    }
-
-    // set the menu for the folders help, accounts, and export tool buttons
-    {
-        auto foldersMenuButton = dynamic_cast<QToolButton*>(ui->mainToolBar->widgetForAction(ui->actionFoldersButton));
-        ui->actionFoldersButton->setMenu(ui->foldersMenu);
-        foldersMenuButton->setPopupMode(QToolButton::InstantPopup);
-
-        helpMenuButton = dynamic_cast<QToolButton*>(ui->mainToolBar->widgetForAction(ui->actionHelpButton));
-        ui->actionHelpButton->setMenu(new QMenu(this));
-        ui->actionHelpButton->menu()->addActions(ui->helpMenu->actions());
-        ui->actionHelpButton->menu()->removeAction(ui->actionCheckUpdate);
-        helpMenuButton->setPopupMode(QToolButton::InstantPopup);
-
-        auto accountMenuButton = dynamic_cast<QToolButton*>(ui->mainToolBar->widgetForAction(ui->actionAccountsButton));
-        accountMenuButton->setPopupMode(QToolButton::InstantPopup);
-
         auto exportInstanceMenu = new QMenu(this);
         exportInstanceMenu->addAction(ui->actionExportInstanceZip);
         exportInstanceMenu->addAction(ui->actionExportInstanceMrPack);
@@ -227,16 +185,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         ui->actionAddToPATH->setVisible(false);
 #endif
 
-        // disabled until we have an instance selected
-        ui->instanceToolBar->setEnabled(false);
         setInstanceActionsEnabled(false);
-
-        // add a close button at the end of the main toolbar when running on gamescope / steam deck
-        // this is only needed on gamescope because it defaults to an X11/XWayland session and
-        // does not implement decorations
-        if (qgetenv("XDG_CURRENT_DESKTOP") == "gamescope") {
-            ui->mainToolBar->addAction(ui->actionCloseWindow);
-        }
 
         ui->actionViewJavaFolder->setEnabled(BuildConfig.JAVA_DOWNLOADER_ENABLED);
     }
@@ -245,14 +194,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         connect(ui->actionViewLog, &QAction::triggered, this, [] { APPLICATION->showLogWindow(); });
     }
 
-    // add the toolbar toggles to the view menu
-    ui->viewMenu->addAction(ui->instanceToolBar->toggleViewAction());
-    ui->viewMenu->addAction(ui->newsToolBar->toggleViewAction());
-
     updateThemeMenu();
     updateMainToolBar();
-    // OSX magic.
-    setUnifiedTitleAndToolBarOnMac(true);
+    setUnifiedTitleAndToolBarOnMac(false);
 
     // Global shortcuts
     {
@@ -275,24 +219,66 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         connect(secretEventFilter, &KonamiCode::triggered, this, &MainWindow::konamiTriggered);
     }
 
-    // Add the news label to the news toolbar.
-    {
-        m_newsChecker.reset(new NewsChecker(APPLICATION->network(), BuildConfig.NEWS_RSS_URL));
-        newsLabel = new QToolButton();
-        newsLabel->setIcon(QIcon::fromTheme("news"));
-        newsLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-        newsLabel->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-        newsLabel->setFocusPolicy(Qt::NoFocus);
-        ui->newsToolBar->insertWidget(ui->actionMoreNews, newsLabel);
+    m_instanceGridFrame = new QFrame(ui->centralWidget);
+    m_instanceGridFrame->setObjectName(QStringLiteral("instanceGridFrame"));
+    auto* gridLayout = new QVBoxLayout(m_instanceGridFrame);
+    gridLayout->setContentsMargins(12, 12, 12, 12);
+    gridLayout->setSpacing(0);
 
-        connect(newsLabel, &QAbstractButton::clicked, this, &MainWindow::newsButtonClicked);
-        connect(m_newsChecker.get(), &NewsChecker::newsLoaded, this, &MainWindow::updateNewsLabel);
-        updateNewsLabel();
+    m_instanceChromeBar = new QFrame(m_instanceGridFrame);
+    m_instanceChromeBar->setObjectName(QStringLiteral("instanceChromeBar"));
+    m_instanceChromeBar->setVisible(instanceChromeBarVisible());
+
+    m_instanceChromeLayout = new QHBoxLayout(m_instanceChromeBar);
+    m_instanceChromeLayout->setContentsMargins(0, 0, 0, 8);
+    m_instanceChromeLayout->setSpacing(6);
+
+    auto createChromeActionButton = [this](QAction* action) {
+        auto* button = new QToolButton(m_instanceChromeBar);
+        button->setDefaultAction(action);
+        button->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+        button->setIconSize(QSize(18, 18));
+        button->setFocusPolicy(Qt::NoFocus);
+        return button;
+    };
+
+    m_instanceChromeLayout->addWidget(createChromeActionButton(ui->actionAddInstance));
+
+    auto* separator = new QFrame(m_instanceChromeBar);
+    separator->setObjectName(QStringLiteral("instanceChromeSeparator"));
+    separator->setFrameShape(QFrame::VLine);
+    separator->setFrameShadow(QFrame::Plain);
+    m_instanceChromeLayout->addWidget(separator);
+
+    m_foldersMenuButton = new QToolButton(m_instanceChromeBar);
+    m_foldersMenuButton->setObjectName(QStringLiteral("mainToolbarFoldersButton"));
+    m_foldersMenuButton->setText(ui->actionFoldersButton->text());
+    m_foldersMenuButton->setToolTip(ui->actionFoldersButton->toolTip());
+    m_foldersMenuButton->setMenu(ui->foldersMenu);
+    m_foldersMenuButton->setPopupMode(QToolButton::InstantPopup);
+    m_foldersMenuButton->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    m_foldersMenuButton->setIcon(ui->actionFoldersButton->icon());
+    m_foldersMenuButton->setIconSize(QSize(18, 18));
+    m_foldersMenuButton->setFocusPolicy(Qt::NoFocus);
+    m_instanceChromeLayout->addWidget(m_foldersMenuButton);
+
+    m_instanceChromeLayout->addWidget(createChromeActionButton(ui->actionSettings));
+
+    if (APPLICATION->updaterEnabled()) {
+        m_instanceChromeLayout->addWidget(createChromeActionButton(ui->actionCheckUpdate));
     }
+
+    m_instanceChromeLayout->addStretch(1);
+
+    if (qgetenv("XDG_CURRENT_DESKTOP") == "gamescope") {
+        m_instanceChromeLayout->addWidget(createChromeActionButton(ui->actionCloseWindow));
+    }
+
+    gridLayout->addWidget(m_instanceChromeBar);
 
     // Create the instance list widget
     {
-        view = new InstanceView(ui->centralWidget);
+        view = new InstanceView(m_instanceGridFrame);
 
         view->setSelectionMode(QAbstractItemView::SingleSelection);
         // FIXME: leaks ListViewDelegate
@@ -332,16 +318,26 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         view->setSourceOfGroupCollapseStatus(
             [](const QString& groupName) -> bool { return APPLICATION->instances()->isGroupCollapsed(groupName); });
         connect(view, &InstanceView::groupStateChanged, APPLICATION->instances(), &InstanceList::on_GroupStateChanged);
-        ui->horizontalLayout->addWidget(view);
+        gridLayout->addWidget(view, 1);
     }
-    // The cat background
-    {
-        // set the cat action priority here so you can still see the action in qt designer
-        ui->actionCAT->setPriority(QAction::LowPriority);
-        updateCatState();
-        connect(ui->actionCAT, &QAction::toggled, this, &MainWindow::onCatToggled);
-        connect(APPLICATION, &Application::currentCatChanged, this, &MainWindow::onCatChanged);
-    }
+
+    ui->horizontalLayout->addWidget(m_instanceGridFrame, 1);
+
+    m_instanceActionPanel = new InstanceActionPanel(ui->centralWidget);
+    m_instanceActionPanel->setEnabled(false);
+    m_instanceActionPanel->iconButton()->setToolTip(ui->actionChangeInstIcon->toolTip());
+    m_instanceActionPanel->nameButton()->setToolTip(ui->actionRenameInstance->toolTip());
+    m_instanceActionPanel->accountMenuButton()->setToolTip(
+        tr("Choose which account launches this instance. Pick an account to pin it to this instance, or use the global default from the "
+           "instance list header."));
+    m_instanceActionPanel->setSecondaryActions({ ui->actionEditInstance,
+                                                 ui->actionChangeInstGroup,
+                                                 ui->actionViewSelectedInstFolder,
+                                                 ui->actionExportInstance,
+                                                 ui->actionCopyInstance,
+                                                 ui->actionDeleteInstance,
+                                                 ui->actionCreateInstanceShortcut });
+    ui->horizontalLayout->addWidget(m_instanceActionPanel);
 
     // Togglable status bar
     {
@@ -381,13 +377,25 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
     statusBar()->addPermanentWidget(m_statusLeft, 1);
     statusBar()->addPermanentWidget(m_statusCenter, 0);
 
-    // Add "manage accounts" button, right align
-    QWidget* spacer = new QWidget();
-    spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    ui->mainToolBar->insertWidget(ui->actionAccountsButton, spacer);
-
     // Use undocumented property... https://stackoverflow.com/questions/7121718/create-a-scrollbar-in-a-submenu-qt
     ui->accountsMenu->setStyleSheet("QMenu { menu-scrollable: 1; }");
+
+    m_accountMenuButton = new QToolButton(m_instanceChromeBar);
+    m_accountMenuButton->setObjectName(QStringLiteral("accountMenuButton"));
+    m_accountMenuButton->setPopupMode(QToolButton::InstantPopup);
+    m_accountMenuButton->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    m_accountMenuButton->setIconSize(QSize(24, 24));
+    m_accountMenuButton->setIcon(APPLICATION->getThemedIcon("noaccount"));
+    m_instanceChromeLayout->addWidget(m_accountMenuButton);
+
+    m_instanceAccountMenu = new QMenu(this);
+    m_instanceActionPanel->accountMenuButton()->setMenu(m_instanceAccountMenu);
+    connect(m_instanceAccountMenu, &QMenu::aboutToShow, this, &MainWindow::repopulateInstanceAccountMenu);
+
+    connect(m_instanceActionPanel->iconButton(), &QToolButton::clicked, this, &MainWindow::on_actionChangeInstIcon_triggered);
+    connect(m_instanceActionPanel->nameButton(), &QPushButton::clicked, this, &MainWindow::on_actionRenameInstance_triggered);
+    connect(m_instanceActionPanel->launchButton(), &QToolButton::clicked, this, &MainWindow::on_actionLaunchInstance_triggered);
+    connect(m_instanceActionPanel->killButton(), &QPushButton::clicked, this, &MainWindow::on_actionKillInstance_triggered);
 
     repopulateAccountsMenu();
 
@@ -403,12 +411,6 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
 
     // TODO: refresh accounts here?
     // auto accounts = APPLICATION->accounts();
-
-    // load the news
-    {
-        m_newsChecker->reloadNews();
-        updateNewsLabel();
-    }
 
     if (APPLICATION->updaterEnabled()) {
         bool updatesAllowed = APPLICATION->updatesAreAllowed();
@@ -432,6 +434,25 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
     view->setFocus();
 
     retranslateUi();
+    enforceLegacyToolbarsHidden();
+}
+
+void MainWindow::reconcileLayoutWithSavedState()
+{
+    enforceLegacyToolbarsHidden();
+    updateMainToolBar();
+}
+
+void MainWindow::enforceLegacyToolbarsHidden()
+{
+    for (QToolBar* toolbar : QList<QToolBar*>{ ui->mainToolBar, ui->instanceToolBar }) {
+        if (!toolbar) {
+            continue;
+        }
+        removeToolBar(toolbar);
+        toolbar->hide();
+        toolbar->setVisible(false);
+    }
 }
 
 // macOS always has a native menu bar, so these fixes are not applicable
@@ -459,15 +480,20 @@ void MainWindow::retranslateUi()
     MinecraftAccountPtr defaultAccount = APPLICATION->accounts()->defaultAccount();
     if (defaultAccount) {
         auto profileLabel = profileInUseFilter(defaultAccount->displayName(), defaultAccount->isInUse());
-        ui->actionAccountsButton->setText(profileLabel);
+        if (m_accountMenuButton) {
+            m_accountMenuButton->setText(profileLabel);
+        }
     }
 
-    changeIconButton->setToolTip(ui->actionChangeInstIcon->toolTip());
-    renameButton->setToolTip(ui->actionRenameInstance->toolTip());
+    if (m_instanceActionPanel) {
+        m_instanceActionPanel->iconButton()->setToolTip(ui->actionChangeInstIcon->toolTip());
+        m_instanceActionPanel->nameButton()->setToolTip(ui->actionRenameInstance->toolTip());
+    }
 
-    // replace the %1 with the launcher display name in some actions
-    if (helpMenuButton->toolTip().contains("%1"))
-        helpMenuButton->setToolTip(helpMenuButton->toolTip().arg(BuildConfig.LAUNCHER_DISPLAYNAME));
+    if (m_foldersMenuButton) {
+        m_foldersMenuButton->setText(ui->actionFoldersButton->text());
+        m_foldersMenuButton->setToolTip(ui->actionFoldersButton->toolTip());
+    }
 
     for (auto action : ui->helpMenu->actions()) {
         if (action->text().contains("%1"))
@@ -496,9 +522,7 @@ void MainWindow::setStatusBarVisibility(bool state)
 }
 void MainWindow::lockToolbars(bool state)
 {
-    ui->mainToolBar->setMovable(!state);
-    ui->instanceToolBar->setMovable(!state);
-    ui->newsToolBar->setMovable(!state);
+    Q_UNUSED(state);
     APPLICATION->settings()->set("ToolbarsLocked", state);
 }
 
@@ -512,14 +536,12 @@ void MainWindow::konamiTriggered()
         ui->mainToolBar->setStyleSheet("");
         ui->instanceToolBar->setStyleSheet("");
         ui->centralWidget->setStyleSheet("");
-        ui->newsToolBar->setStyleSheet("");
         ui->statusBar->setStyleSheet("");
         qDebug() << "Super Secret Mode DEACTIVATED!";
     } else {
         ui->mainToolBar->setStyleSheet(stylesheet);
         ui->instanceToolBar->setStyleSheet("background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1," + gradient);
         ui->centralWidget->setStyleSheet("background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1," + gradient);
-        ui->newsToolBar->setStyleSheet(stylesheet);
         ui->statusBar->setStyleSheet(stylesheet);
         qDebug() << "Super Secret Mode ACTIVATED!";
     }
@@ -588,10 +610,33 @@ void MainWindow::showInstanceContextMenu(const QPoint& pos)
     myMenu.exec(view->mapToGlobal(pos));
 }
 
+bool MainWindow::instanceChromeBarVisible() const
+{
+    return ui->menuBar->isNativeMenuBar() || !APPLICATION->settings()->get("MenuBarInsteadOfToolBar").toBool();
+}
+
+void MainWindow::applyThemedActionIcons()
+{
+    ui->actionAddInstance->setIcon(APPLICATION->getThemedIcon(QStringLiteral("new")));
+    ui->actionSettings->setIcon(APPLICATION->getThemedIcon(QStringLiteral("settings")));
+    ui->actionFoldersButton->setIcon(APPLICATION->getThemedIcon(QStringLiteral("viewfolder")));
+    ui->actionCheckUpdate->setIcon(APPLICATION->getThemedIcon(QStringLiteral("checkupdate")));
+    ui->actionCopyInstance->setIcon(APPLICATION->getThemedIcon(QStringLiteral("copy")));
+    if (!BuildConfig.BUG_TRACKER_URL.isEmpty()) {
+        ui->actionReportBug->setIcon(APPLICATION->getThemedIcon(QStringLiteral("bug")));
+    }
+    if (m_foldersMenuButton) {
+        m_foldersMenuButton->setIcon(ui->actionFoldersButton->icon());
+    }
+}
+
 void MainWindow::updateMainToolBar()
 {
     ui->menuBar->setVisible(APPLICATION->settings()->get("MenuBarInsteadOfToolBar").toBool());
-    ui->mainToolBar->setVisible(ui->menuBar->isNativeMenuBar() || !APPLICATION->settings()->get("MenuBarInsteadOfToolBar").toBool());
+    enforceLegacyToolbarsHidden();
+    if (m_instanceChromeBar) {
+        m_instanceChromeBar->setVisible(instanceChromeBarVisible());
+    }
 }
 
 void MainWindow::updateLaunchButton()
@@ -604,6 +649,35 @@ void MainWindow::updateLaunchButton()
     if (m_selectedInstance)
         m_selectedInstance->populateLaunchMenu(launchMenu);
     ui->actionLaunchInstance->setMenu(launchMenu);
+    if (m_instanceActionPanel) {
+        m_instanceActionPanel->launchButton()->setPopupMode(QToolButton::MenuButtonPopup);
+        m_instanceActionPanel->launchButton()->setMenu(launchMenu);
+    }
+    syncLaunchAccountGating();
+}
+
+void MainWindow::syncLaunchAccountGating()
+{
+    const bool hasInstance = m_selectedInstance != nullptr;
+    const bool running = hasInstance && m_selectedInstance->isRunning();
+    const MinecraftAccountPtr launchAccount = hasInstance ? LaunchAccountUtils::accountForLaunch(m_selectedInstance) : nullptr;
+    const bool accountBlocked = LaunchAccountUtils::blocksLaunch(launchAccount);
+    const bool canLaunch = hasInstance && m_selectedInstance->canLaunch() && !running && !accountBlocked;
+
+    ui->actionLaunchInstance->setEnabled(canLaunch);
+    if (m_instanceActionPanel) {
+        m_instanceActionPanel->launchButton()->setEnabled(canLaunch);
+        m_instanceActionPanel->killButton()->setEnabled(hasInstance && running);
+    }
+
+    QString blockReason;
+    if (accountBlocked && hasInstance && !running) {
+        blockReason = LaunchAccountUtils::launchBlockReason(launchAccount);
+    }
+    ui->actionLaunchInstance->setToolTip(blockReason);
+    if (m_instanceActionPanel) {
+        m_instanceActionPanel->launchButton()->setToolTip(blockReason);
+    }
 }
 
 void MainWindow::updateThemeMenu()
@@ -642,13 +716,16 @@ void MainWindow::repopulateAccountsMenu()
 {
     ui->accountsMenu->clear();
 
-    // NOTE: this is done so the accounts button text is not set to the accounts menu title
-    QMenu* accountsButtonMenu = ui->actionAccountsButton->menu();
+    if (!m_accountMenuButton) {
+        return;
+    }
+
+    QMenu* accountsButtonMenu = m_accountMenuButton->menu();
     if (accountsButtonMenu) {
         accountsButtonMenu->clear();
     } else {
         accountsButtonMenu = new QMenu(this);
-        ui->actionAccountsButton->setMenu(accountsButtonMenu);
+        m_accountMenuButton->setMenu(accountsButtonMenu);
     }
 
     auto accounts = APPLICATION->accounts();
@@ -659,11 +736,8 @@ void MainWindow::repopulateAccountsMenu()
 
     QString active_profileId = "";
     if (defaultAccount) {
-        // this can be called before accountMenuButton exists
-        if (ui->actionAccountsButton) {
-            auto profileLabel = profileInUseFilter(defaultAccount->displayName(), defaultAccount->isInUse());
-            ui->actionAccountsButton->setText(profileLabel);
-        }
+        auto profileLabel = profileInUseFilter(defaultAccount->displayName(), defaultAccount->isInUse());
+        m_accountMenuButton->setText(profileLabel);
     }
 
     QActionGroup* accountsGroup = new QActionGroup(this);
@@ -688,7 +762,7 @@ void MainWindow::repopulateAccountsMenu()
             if (!face.isNull()) {
                 action->setIcon(face);
             } else {
-                action->setIcon(QIcon::fromTheme("noaccount"));
+                action->setIcon(APPLICATION->getThemedIcon("noaccount"));
             }
 
             const int highestNumberKey = 9;
@@ -751,25 +825,29 @@ void MainWindow::changeActiveAccount()
 void MainWindow::defaultAccountChanged()
 {
     repopulateAccountsMenu();
+    syncLaunchAccountGating();
+    updateInstanceAccountButton();
+
+    if (!m_accountMenuButton) {
+        return;
+    }
 
     MinecraftAccountPtr account = APPLICATION->accounts()->defaultAccount();
 
-    // FIXME: this needs adjustment for MSA
     if (account && account->profileName() != "") {
         auto profileLabel = profileInUseFilter(account->displayName(), account->isInUse());
-        ui->actionAccountsButton->setText(profileLabel);
+        m_accountMenuButton->setText(profileLabel);
         auto face = account->getFace();
         if (face.isNull()) {
-            ui->actionAccountsButton->setIcon(QIcon::fromTheme("noaccount"));
+            m_accountMenuButton->setIcon(APPLICATION->getThemedIcon("noaccount"));
         } else {
-            ui->actionAccountsButton->setIcon(face);
+            m_accountMenuButton->setIcon(face);
         }
         return;
     }
 
-    // Set the icon to the "no account" icon.
-    ui->actionAccountsButton->setIcon(QIcon::fromTheme("noaccount"));
-    ui->actionAccountsButton->setText(tr("Accounts"));
+    m_accountMenuButton->setIcon(APPLICATION->getThemedIcon("noaccount"));
+    m_accountMenuButton->setText(tr("Accounts"));
 }
 
 bool MainWindow::eventFilter(QObject* obj, QEvent* ev)
@@ -802,26 +880,6 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* ev)
     return QMainWindow::eventFilter(obj, ev);
 }
 
-void MainWindow::updateNewsLabel()
-{
-    if (m_newsChecker->isLoadingNews()) {
-        newsLabel->setText(tr("Loading news..."));
-        newsLabel->setEnabled(false);
-        ui->actionMoreNews->setVisible(false);
-    } else {
-        QList<NewsEntryPtr> entries = m_newsChecker->getNewsEntries();
-        if (entries.length() > 0) {
-            newsLabel->setText(entries[0]->title);
-            newsLabel->setEnabled(true);
-            ui->actionMoreNews->setVisible(true);
-        } else {
-            newsLabel->setText(tr("No news available."));
-            newsLabel->setEnabled(false);
-            ui->actionMoreNews->setVisible(false);
-        }
-    }
-}
-
 QList<int> stringToIntList(const QString& string)
 {
     QStringList split = string.split(',', Qt::SkipEmptyParts);
@@ -838,33 +896,6 @@ QString intListToString(const QList<int>& list)
         slist.append(QString::number(list.at(i)));
     }
     return slist.join(',');
-}
-
-void MainWindow::onCatToggled(bool state)
-{
-    setCatBackground(state);
-    APPLICATION->settings()->set("TheCat", state);
-}
-
-void MainWindow::setCatBackground(bool enabled)
-{
-    view->setPaintCat(enabled);
-    view->viewport()->repaint();
-}
-
-void MainWindow::updateCatState()
-{
-    SettingsObject* settings = APPLICATION->settings();
-    const bool catEnabled = settings->get("EnableCat").toBool();
-    bool catVisible = settings->get("TheCat").toBool();
-    if (!catEnabled && catVisible) {
-        settings->set("TheCat", false);
-        catVisible = false;
-    }
-
-    ui->actionCAT->setVisible(catEnabled);
-    ui->actionCAT->setChecked(catVisible);
-    setCatBackground(catVisible);
 }
 
 void MainWindow::runModalTask(Task* task)
@@ -1212,7 +1243,9 @@ void MainWindow::on_actionChangeInstIcon_triggered()
         m_selectedInstance->setIconKey(dlg.selectedIconKey);
         auto icon = APPLICATION->icons()->getIcon(dlg.selectedIconKey);
         ui->actionChangeInstIcon->setIcon(icon);
-        changeIconButton->setIcon(icon);
+        if (m_instanceActionPanel) {
+            m_instanceActionPanel->iconButton()->setIcon(icon);
+        }
     }
 }
 
@@ -1221,7 +1254,9 @@ void MainWindow::iconUpdated(QString icon)
     if (icon == m_currentInstIcon) {
         auto new_icon = APPLICATION->icons()->getIcon(m_currentInstIcon);
         ui->actionChangeInstIcon->setIcon(new_icon);
-        changeIconButton->setIcon(new_icon);
+        if (m_instanceActionPanel) {
+            m_instanceActionPanel->iconButton()->setIcon(new_icon);
+        }
     }
 }
 
@@ -1230,7 +1265,9 @@ void MainWindow::updateInstanceToolIcon(QString new_icon)
     m_currentInstIcon = new_icon;
     auto icon = APPLICATION->icons()->getIcon(m_currentInstIcon);
     ui->actionChangeInstIcon->setIcon(icon);
-    changeIconButton->setIcon(icon);
+    if (m_instanceActionPanel) {
+        m_instanceActionPanel->iconButton()->setIcon(icon);
+    }
 }
 
 void MainWindow::setSelectedInstanceById(const QString& id)
@@ -1335,11 +1372,6 @@ void MainWindow::on_actionViewWidgetThemeFolder_triggered()
     DesktopServices::openPath(APPLICATION->themeManager()->getApplicationThemesFolder().path(), true);
 }
 
-void MainWindow::on_actionViewCatPackFolder_triggered()
-{
-    DesktopServices::openPath(APPLICATION->themeManager()->getCatPacksFolder().path(), true);
-}
-
 void MainWindow::on_actionViewIconsFolder_triggered()
 {
     DesktopServices::openPath(APPLICATION->icons()->getDirectory(), true);
@@ -1376,13 +1408,15 @@ void MainWindow::on_actionSettings_triggered()
 
 void MainWindow::globalSettingsClosed()
 {
+    applyThemedActionIcons();
     proxymodel->invalidate();
     proxymodel->sort(0);
     updateMainToolBar();
     updateLaunchButton();
     updateThemeMenu();
     updateStatusCenter();
-    updateCatState();
+    updateInstanceAccountButton();
+    enforceLegacyToolbarsHidden();
     // This needs to be done to prevent UI elements disappearing in the event the config is changed
     // but Prism Launcher exits abnormally, causing the window state to never be saved:
     APPLICATION->settings()->set("MainWindowState", QString::fromUtf8(saveState().toBase64()));
@@ -1464,26 +1498,6 @@ void MainWindow::on_actionAddToPATH_triggered()
 void MainWindow::on_actionOpenWiki_triggered()
 {
     DesktopServices::openUrl(QUrl(BuildConfig.WIKI_URL));
-}
-
-void MainWindow::on_actionMoreNews_triggered()
-{
-    auto entries = m_newsChecker->getNewsEntries();
-    NewsDialog news_dialog(entries, this);
-    news_dialog.exec();
-}
-
-void MainWindow::newsButtonClicked()
-{
-    auto entries = m_newsChecker->getNewsEntries();
-    NewsDialog news_dialog(entries, this);
-    news_dialog.toggleArticleList();
-    news_dialog.exec();
-}
-
-void MainWindow::onCatChanged(int)
-{
-    setCatBackground(APPLICATION->settings()->get("TheCat").toBool());
 }
 
 void MainWindow::on_actionAbout_triggered()
@@ -1583,10 +1597,10 @@ void MainWindow::on_actionViewSelectedInstFolder_triggered()
 
 void MainWindow::closeEvent(QCloseEvent* event)
 {
+    enforceLegacyToolbarsHidden();
     // Save the window state and geometry.
     APPLICATION->settings()->set("MainWindowState", QString::fromUtf8(saveState().toBase64()));
     APPLICATION->settings()->set("MainWindowGeometry", QString::fromUtf8(saveGeometry().toBase64()));
-    instanceToolbarSetting->set(QString::fromUtf8(ui->instanceToolBar->getVisibilityState().toBase64()));
     event->accept();
     emit isClosing();
 }
@@ -1625,6 +1639,11 @@ void MainWindow::instanceActivated(QModelIndex index)
 void MainWindow::on_actionLaunchInstance_triggered()
 {
     if (m_selectedInstance && !m_selectedInstance->isRunning()) {
+        const MinecraftAccountPtr account = LaunchAccountUtils::accountForLaunch(m_selectedInstance);
+        if (LaunchAccountUtils::blocksLaunch(account)) {
+            QMessageBox::warning(this, tr("Launch blocked"), LaunchAccountUtils::launchBlockReason(account));
+            return;
+        }
         APPLICATION->launch(m_selectedInstance);
     }
 }
@@ -1677,16 +1696,23 @@ void MainWindow::instanceChanged(const QModelIndex& current, [[maybe_unused]] co
     QString id = current.data(InstanceList::InstanceIDRole).toString();
     m_selectedInstance = APPLICATION->instances()->getInstanceById(id);
     if (m_selectedInstance) {
-        ui->instanceToolBar->setEnabled(true);
+        if (m_instanceActionPanel) {
+            m_instanceActionPanel->setEnabled(true);
+        }
         setInstanceActionsEnabled(true);
-        ui->actionLaunchInstance->setEnabled(m_selectedInstance->canLaunch());
+        syncLaunchAccountGating();
 
         ui->actionKillInstance->setEnabled(m_selectedInstance->isRunning());
         ui->actionExportInstance->setEnabled(m_selectedInstance->canExport());
-        renameButton->setText(m_selectedInstance->name());
-        m_statusLeft->setText(m_selectedInstance->getStatusbarDescription());
+        // Compute once: getStatusbarDescription() can trigger PackProfile::reload.
+        const QString statusDescription = m_selectedInstance->getStatusbarDescription();
+        m_statusLeft->setText(statusDescription);
         updateStatusCenter();
         updateInstanceToolIcon(m_selectedInstance->iconKey());
+        if (m_instanceActionPanel) {
+            m_instanceActionPanel->setHeaderText(m_selectedInstance->name(), statusDescription);
+        }
+        updateInstanceAccountButton();
 
         updateLaunchButton();
 
@@ -1722,10 +1748,13 @@ void MainWindow::selectionBad()
     m_statusLeft->setText(tr("No instance selected"));
 
     statusBar()->clearMessage();
-    ui->instanceToolBar->setEnabled(false);
+    if (m_instanceActionPanel) {
+        m_instanceActionPanel->setEnabled(false);
+    }
     setInstanceActionsEnabled(false);
     updateLaunchButton();
-    renameButton->setText(tr("Rename Instance"));
+    syncInstancePanelHeader();
+    updateInstanceAccountButton();
     updateInstanceToolIcon("grass");
 
     // ...and then see if we can enable the previously selected instance
@@ -1792,4 +1821,219 @@ void MainWindow::refreshCurrentInstance()
 {
     auto current = view->selectionModel()->currentIndex();
     instanceChanged(current, current);
+}
+
+void MainWindow::syncInstancePanelHeader()
+{
+    if (!m_instanceActionPanel) {
+        return;
+    }
+    if (!m_selectedInstance) {
+        m_instanceActionPanel->setHeaderText(tr("No instance selected"), QString());
+        return;
+    }
+    m_instanceActionPanel->setHeaderText(m_selectedInstance->name(), m_selectedInstance->getStatusbarDescription());
+}
+
+void MainWindow::updateInstanceAccountButton()
+{
+    if (!m_instanceActionPanel) {
+        return;
+    }
+
+    if (!m_selectedInstance) {
+        m_instanceActionPanel->setAccountDisplay(APPLICATION->getThemedIcon("noaccount"), tr("No account"), QString(), QString(), false, true);
+        syncLaunchAccountGating();
+        return;
+    }
+
+    const bool usingGlobalDefault = !m_selectedInstance->settings()->get("UseAccountForInstance").toBool();
+    const bool overrideMissing =
+        m_selectedInstance->settings()->get("UseAccountForInstance").toBool()
+        && !LaunchAccountUtils::accountForLaunch(m_selectedInstance);
+    MinecraftAccountPtr account = LaunchAccountUtils::accountForLaunch(m_selectedInstance);
+
+    if (account) {
+        QString title = profileInUseFilter(account->displayName(), account->isInUse());
+        const QString metaLine = LaunchAccountUtils::accountMetaLine(account);
+        const bool launchBlocked = LaunchAccountUtils::blocksLaunch(account);
+
+        QString caption;
+        if (launchBlocked) {
+            caption = LaunchAccountUtils::launchBlockReason(account);
+        } else if (usingGlobalDefault) {
+            caption = tr("Follows global default — change in the top bar, or pick an account here to pin.");
+        } else {
+            caption = tr("Pinned to this instance only.");
+        }
+
+        QIcon faceIcon = account->getFace().isNull() ? APPLICATION->getThemedIcon("noaccount") : QIcon(account->getFace());
+
+        m_instanceActionPanel->setAccountDisplay(faceIcon, title, metaLine, caption, true, launchBlocked);
+        syncLaunchAccountGating();
+        if (view) {
+            view->viewport()->update();
+        }
+        return;
+    }
+
+    QString caption = overrideMissing
+        ? tr("The pinned account was removed. Choose another account or use the global default.")
+        : tr("Add an account in Settings or use Manage Accounts below.");
+
+    m_instanceActionPanel->setAccountDisplay(APPLICATION->getThemedIcon("noaccount"), tr("No account"), QString(), caption, true, true);
+    syncLaunchAccountGating();
+    if (view) {
+        view->viewport()->update();
+    }
+}
+
+void MainWindow::applyInstanceAccountOverride(const QString& profileId)
+{
+    if (!m_selectedInstance) {
+        return;
+    }
+    m_selectedInstance->settings()->set("UseAccountForInstance", true);
+    m_selectedInstance->settings()->set("InstanceAccountId", profileId);
+    updateInstanceAccountButton();
+}
+
+void MainWindow::clearInstanceAccountOverride()
+{
+    if (!m_selectedInstance) {
+        return;
+    }
+    m_selectedInstance->settings()->set("UseAccountForInstance", false);
+    m_selectedInstance->settings()->reset("InstanceAccountId");
+    updateInstanceAccountButton();
+}
+
+void MainWindow::repopulateInstanceAccountMenu()
+{
+    if (!m_instanceAccountMenu) {
+        return;
+    }
+
+    m_instanceAccountMenu->clear();
+
+    if (!m_selectedInstance) {
+        return;
+    }
+
+    auto* heading = m_instanceAccountMenu->addAction(tr("This instance"));
+    heading->setEnabled(false);
+    m_instanceAccountMenu->addSeparator();
+
+    auto accounts = APPLICATION->accounts();
+    const bool overrideEnabled = m_selectedInstance->settings()->get("UseAccountForInstance").toBool();
+    const QString overrideProfileId = m_selectedInstance->settings()->get("InstanceAccountId").toString();
+    MinecraftAccountPtr defaultAccount = accounts->defaultAccount();
+    MinecraftAccountPtr effectiveAccount = LaunchAccountUtils::accountForLaunch(m_selectedInstance);
+
+    if (accounts->count() <= 0) {
+        auto* empty = m_instanceAccountMenu->addAction(tr("No accounts added"));
+        empty->setEnabled(false);
+    } else {
+        QList<int> regularIndices;
+        QList<int> alteningIndices;
+        for (int i = 0; i < accounts->count(); i++) {
+            MinecraftAccountPtr account = accounts->at(i);
+            if (account->accountData()->type == AccountType::TheAltening) {
+                alteningIndices.append(i);
+            } else {
+                regularIndices.append(i);
+            }
+        }
+
+        auto addAccountAction = [&](int accountIndex) {
+            MinecraftAccountPtr account = accounts->at(accountIndex);
+            auto profileLabel = profileInUseFilter(account->displayName(), account->isInUse());
+            const QString metaLine = LaunchAccountUtils::accountMetaLine(account);
+            const bool launchBlocked = LaunchAccountUtils::blocksLaunch(account);
+            const QString actionText =
+                metaLine.isEmpty() ? profileLabel : profileLabel + QStringLiteral(" — ") + metaLine;
+
+            QAction* action = m_instanceAccountMenu->addAction(actionText);
+            action->setData(account->profileId());
+            action->setCheckable(true);
+            if (overrideEnabled) {
+                if (account->profileId() == overrideProfileId) {
+                    action->setChecked(true);
+                }
+            } else if (effectiveAccount && account->profileId() == effectiveAccount->profileId()) {
+                action->setChecked(true);
+            }
+
+            if (launchBlocked) {
+                action->setEnabled(false);
+                action->setToolTip(LaunchAccountUtils::launchBlockReason(account));
+            }
+
+            auto face = account->getFace();
+            if (!face.isNull()) {
+                action->setIcon(face);
+            } else {
+                action->setIcon(APPLICATION->getThemedIcon("noaccount"));
+            }
+
+            connect(action, &QAction::triggered, this, &MainWindow::changeInstanceAccount);
+        };
+
+        for (int accountIndex : regularIndices) {
+            addAccountAction(accountIndex);
+        }
+
+        if (!regularIndices.isEmpty() && !alteningIndices.isEmpty()) {
+            m_instanceAccountMenu->addSeparator();
+            auto* section = m_instanceAccountMenu->addAction(tr("The Altening"));
+            section->setEnabled(false);
+        }
+
+        for (int accountIndex : alteningIndices) {
+            addAccountAction(accountIndex);
+        }
+    }
+
+    m_instanceAccountMenu->addSeparator();
+
+    QAction* useGlobalDefault = m_instanceAccountMenu->addAction(tr("Use global default"));
+    useGlobalDefault->setData(QString());
+    useGlobalDefault->setCheckable(true);
+    useGlobalDefault->setChecked(!overrideEnabled);
+    if (defaultAccount) {
+        useGlobalDefault->setIcon(defaultAccount->getFace().isNull() ? APPLICATION->getThemedIcon("noaccount")
+                                                                       : QIcon(defaultAccount->getFace()));
+        const QString defaultMeta = LaunchAccountUtils::accountMetaLine(defaultAccount);
+        useGlobalDefault->setText(defaultMeta.isEmpty()
+                                      ? tr("Use global default (%1)").arg(defaultAccount->displayName())
+                                      : tr("Use global default (%1 — %2)").arg(defaultAccount->displayName(), defaultMeta));
+        if (LaunchAccountUtils::blocksLaunch(defaultAccount)) {
+            useGlobalDefault->setToolTip(
+                tr("The global default account cannot launch right now. Change the default in the top bar or pick another account here.")
+                + QStringLiteral("\n\n")
+                + LaunchAccountUtils::launchBlockReason(defaultAccount));
+        }
+    } else {
+        useGlobalDefault->setIcon(APPLICATION->getThemedIcon("noaccount"));
+    }
+    connect(useGlobalDefault, &QAction::triggered, this, &MainWindow::changeInstanceAccount);
+
+    m_instanceAccountMenu->addSeparator();
+    m_instanceAccountMenu->addAction(ui->actionManageAccounts);
+}
+
+void MainWindow::changeInstanceAccount()
+{
+    auto* action = qobject_cast<QAction*>(sender());
+    if (!action || !m_selectedInstance) {
+        return;
+    }
+
+    const QVariant data = action->data();
+    if (!data.isValid() || data.toString().isEmpty()) {
+        clearInstanceAccountOverride();
+        return;
+    }
+
+    applyInstanceAccountOverride(data.toString());
 }

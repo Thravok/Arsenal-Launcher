@@ -59,6 +59,11 @@
 #include "ui/pages/BasePageProvider.h"
 #include "ui/pages/global/APIPage.h"
 #include "ui/pages/global/AccountListPage.h"
+#include "ui/pages/global/AlteningSettingsPage.h"
+#include "icons/ThemedSvgIcon.h"
+#include "minecraft/auth/TheAlteningConfig.h"
+
+#include <QGuiApplication>
 #include "ui/pages/global/AppearancePage.h"
 #include "ui/pages/global/ExternalToolsPage.h"
 #include "ui/pages/global/JavaPage.h"
@@ -158,8 +163,9 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
-#include <QStyleHints>
 #endif
+
+#include <QStyleHints>
 
 #include "console/Console.h"
 
@@ -645,10 +651,10 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
         // Provide a fallback for migration from PolyMC
         m_settings.reset(new INISettingsObject({ BuildConfig.LAUNCHER_CONFIGFILE, "polymc.cfg", "multimc.cfg" }, this));
 
-        // Theming
-        m_settings->registerSetting("IconTheme", QString());
+        // Theming — Lucide is Arsenal Launcher's designated UI icon set
+        m_settings->registerSetting("IconTheme", QStringLiteral("lucide"));
         m_settings->registerSetting("ApplicationTheme", QString());
-        m_settings->registerSetting("BackgroundCat", QString("kitteh"));
+        m_settings->registerSetting("ArsenalLucideIconsMigrated", false);
 
         // Remembered state
         m_settings->registerSetting("LastUsedGroupForNewInstance", QString());
@@ -715,6 +721,7 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
 
         // Editors
         m_settings->registerSetting("JsonEditor", QString());
+        m_settings->registerSetting(TheAltening::ApiKeySettingName, QString());
 
         // Language
         m_settings->registerSetting("Language", QString());
@@ -801,12 +808,6 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
         m_settings->registerSetting({ "PreLaunchCommand", "PreLaunchCmd" }, "");
         m_settings->registerSetting({ "PostExitCommand", "PostExitCmd" }, "");
 
-        // The cat
-        m_settings->registerSetting("EnableCat", true);
-        m_settings->registerSetting("TheCat", false);
-        m_settings->registerSetting("CatOpacity", 100);
-        m_settings->registerSetting("CatFit", "fit");
-
         m_settings->registerSetting("StatusBarVisible", true);
 
         m_settings->registerSetting("ToolbarsLocked", false);
@@ -831,8 +832,6 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
         m_settings->registerSetting("NewInstanceGeometry", "");
 
         m_settings->registerSetting("UpdateDialogGeometry", "");
-
-        m_settings->registerSetting("NewsGeometry", "");
 
         m_settings->registerSetting("ModDownloadGeometry", "");
         m_settings->registerSetting("RPDownloadGeometry", "");
@@ -919,6 +918,7 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
             m_globalSettingsProvider->addPage<MinecraftPage>();
             m_globalSettingsProvider->addPage<JavaPage>();
             m_globalSettingsProvider->addPage<AccountListPage>();
+            m_globalSettingsProvider->addPage<AlteningSettingsPage>();
             m_globalSettingsProvider->addPage<APIPage>();
             m_globalSettingsProvider->addPage<ExternalToolsPage>();
             m_globalSettingsProvider->addPage<ProxyPage>();
@@ -966,6 +966,16 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
 
     // Themes
     m_themeManager = std::make_unique<ThemeManager>();
+
+    // One-time: switch inherited Prism/MultiMC icon themes to Lucide (Arsenal designated set).
+    const bool lucideIconsMigrated = settings()->get("ArsenalLucideIconsMigrated").toBool()
+        || settings()->get("HackerMCLucideIconsMigrated").toBool();
+    if (!lucideIconsMigrated) {
+        settings()->set("IconTheme", QStringLiteral("lucide"));
+        settings()->set("ArsenalLucideIconsMigrated", true);
+    } else if (!m_themeManager->isValidIconTheme(settings()->get("IconTheme").toString())) {
+        settings()->set("IconTheme", QStringLiteral("lucide"));
+    }
 
 #ifdef Q_OS_MACOS
     // for macOS: getting directory settings will generate URL security-scoped bookmarks if needed and not present
@@ -1037,7 +1047,8 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
         m_metacache->addBase("translations", QDir("translations").absolutePath());
         m_metacache->addBase("meta", QDir("meta").absolutePath());
         m_metacache->addBase("java", QDir("cache/java").absolutePath());
-        m_metacache->addBase("feed", QDir("cache/feed").absolutePath());
+        m_metacache->addBase("hackclients", QDir("cache/hackclients").absolutePath());
+        m_metacache->addBase("authlibinjector", QDir("cache/authlibinjector").absolutePath());
         m_metacache->Load();
         qInfo() << "<> Cache initialized.";
     }
@@ -1256,16 +1267,11 @@ bool Application::createSetupWizard()
     if (wizardRequired) {
         // set default theme after going into theme wizard
         if (!validIcons) {
-            settings()->set("IconTheme", QString("pe_colored"));
+            settings()->set("IconTheme", QStringLiteral("lucide"));
         }
         if (!validWidgets) {
-#if defined(Q_OS_WIN32)
             const QString style =
                 QGuiApplication::styleHints()->colorScheme() == Qt::ColorScheme::Dark ? QStringLiteral("dark") : QStringLiteral("bright");
-#else
-            const QString style = QStringLiteral("system");
-#endif
-
             settings()->set("ApplicationTheme", style);
         }
 
@@ -1522,6 +1528,26 @@ JavaInstallList* Application::javalist()
     return m_javalist.get();
 }
 
+QIcon Application::getThemedIcon(const QString& name)
+{
+    if (name == QLatin1String("logo")) {
+        return logo();
+    }
+
+    const QColor iconColor = QGuiApplication::palette().color(QPalette::WindowText);
+    QString theme = QIcon::themeName();
+    if (theme.isEmpty()) {
+        theme = QStringLiteral("lucide");
+    }
+    const QIcon bundled = ThemedSvgIcon::fromBundledThemes(name, theme, iconColor, 24);
+    if (!bundled.isNull()) {
+        return bundled;
+    }
+
+    // Do not fall back to IconList — getIcon() returns grass for unknown keys.
+    return QIcon::fromTheme(name);
+}
+
 QIcon Application::logo()
 {
     return QIcon(":/" + BuildConfig.LAUNCHER_SVGFILENAME);
@@ -1692,6 +1718,7 @@ MainWindow* Application::showMainWindow(bool minimized)
         m_mainWindow = new MainWindow();
         m_mainWindow->restoreState(QByteArray::fromBase64(APPLICATION->settings()->get("MainWindowState").toString().toUtf8()));
         m_mainWindow->restoreGeometry(QByteArray::fromBase64(APPLICATION->settings()->get("MainWindowGeometry").toString().toUtf8()));
+        m_mainWindow->reconcileLayoutWithSavedState();
 
         if (minimized) {
             m_mainWindow->showMinimized();

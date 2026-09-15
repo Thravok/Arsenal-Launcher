@@ -55,6 +55,7 @@ class ImportPage : public QWidget, public BasePage {
     virtual QString displayName() const override { return tr("Import"); }
     virtual QIcon icon() const override { return QIcon::fromTheme("viewfolder"); }
     virtual QString id() const override { return "import"; }
+    QString sidebarGroup() const override { return QStringLiteral("more"); }
     virtual QString helpPage() const override { return "Zip-import"; }
     virtual bool shouldDisplay() const override;
     void retranslate() override;

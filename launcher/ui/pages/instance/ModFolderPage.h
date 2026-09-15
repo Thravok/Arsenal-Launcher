@@ -48,7 +48,7 @@ class ModFolderPage : public ExternalResourcesPage {
     inline bool handleNoModLoader();
 
    public:
-    explicit ModFolderPage(MinecraftInstance* inst, ModFolderModel* model, QWidget* parent = nullptr);
+    explicit ModFolderPage(MinecraftInstance* inst, ModFolderModel* model, QWidget* parent = nullptr, bool offerBaritoneInstall = false);
     virtual ~ModFolderPage() = default;
 
     void setFilter(const QString& filter) { m_fileSelectionFilter = filter; }
@@ -72,9 +72,12 @@ class ModFolderPage : public ExternalResourcesPage {
     void deleteModMetadata();
     void exportModMetadata();
     void changeModVersion();
+    void installBaritone();
+    void updateActions() override;
 
    protected:
     ModFolderModel* m_model;
+    QAction* m_installBaritoneAction = nullptr;
     QPointer<ResourceDownload::ResourceDownloadDialog> m_downloadDialog;
 };
 

@@ -11,6 +11,9 @@
 #include "minecraft/auth/steps/MinecraftProfileStep.h"
 #include "minecraft/auth/steps/XboxAuthorizationStep.h"
 #include "minecraft/auth/steps/XboxUserStep.h"
+#include "minecraft/auth/steps/TheAlteningGenerateStep.h"
+#include "minecraft/auth/steps/TheAlteningProfileStep.h"
+#include "minecraft/auth/steps/TheAlteningYggdrasilLoginStep.h"
 #include "tasks/Task.h"
 
 #include "AuthFlow.h"
@@ -19,6 +22,17 @@
 
 AuthFlow::AuthFlow(AccountData* data, Action action) : Task(), m_data(data)
 {
+    if (data->type == AccountType::TheAltening) {
+        const bool refresh = action == Action::Refresh;
+        if (!refresh) {
+            m_steps.append(makeShared<TheAlteningGenerateStep>(m_data));
+        }
+        m_steps.append(makeShared<TheAlteningYggdrasilLoginStep>(m_data, refresh));
+        m_steps.append(makeShared<TheAlteningProfileStep>(m_data));
+        m_steps.append(makeShared<GetSkinStep>(m_data));
+        changeState(AccountTaskState::STATE_CREATED);
+        return;
+    }
     if (data->type == AccountType::MSA) {
         if (action == Action::DeviceCode) {
             auto oauthStep = makeShared<MSADeviceCodeStep>(m_data);

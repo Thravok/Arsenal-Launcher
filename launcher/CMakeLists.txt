@@ -14,6 +14,8 @@ set(CORE_SOURCES
     InstanceList.cpp
     InstanceTask.h
     InstanceTask.cpp
+    InstanceCreationTask.h
+    InstanceCreationTask.cpp
     LoggedProcess.h
     LoggedProcess.cpp
     MessageLevel.cpp
@@ -182,15 +184,6 @@ set(PRISM_UPDATE_SOURCES
     updater/PrismExternalUpdater.cpp
 )
 
-# Backend for the news bar... there's usually no news.
-set(NEWS_SOURCES
-    # News System
-    news/NewsChecker.h
-    news/NewsChecker.cpp
-    news/NewsEntry.h
-    news/NewsEntry.cpp
-)
-
 # Icon interface
 set(ICONS_SOURCES
     # Icons System and related code
@@ -237,6 +230,15 @@ set(MINECRAFT_SOURCES
     minecraft/auth/steps/XboxAuthorizationStep.h
     minecraft/auth/steps/XboxUserStep.cpp
     minecraft/auth/steps/XboxUserStep.h
+    minecraft/auth/TheAlteningApi.cpp
+    minecraft/auth/TheAlteningApi.h
+    minecraft/auth/TheAlteningConfig.h
+    minecraft/auth/steps/TheAlteningGenerateStep.cpp
+    minecraft/auth/steps/TheAlteningGenerateStep.h
+    minecraft/auth/steps/TheAlteningYggdrasilLoginStep.cpp
+    minecraft/auth/steps/TheAlteningYggdrasilLoginStep.h
+    minecraft/auth/steps/TheAlteningProfileStep.cpp
+    minecraft/auth/steps/TheAlteningProfileStep.h
 
     minecraft/update/AssetUpdateTask.h
     minecraft/update/AssetUpdateTask.cpp
@@ -273,6 +275,46 @@ set(MINECRAFT_SOURCES
     minecraft/launch/VerifyJavaInstall.h
     minecraft/launch/AutoInstallJava.cpp
     minecraft/launch/AutoInstallJava.h
+    minecraft/launch/ConfigureAuthlibInjector.cpp
+    minecraft/launch/ConfigureAuthlibInjector.h
+    minecraft/launch/TheAlteningAuthlibProxy.cpp
+    minecraft/launch/TheAlteningAuthlibProxy.h
+
+    hackclients/HackClientTypes.h
+    hackclients/HackClientsMeta.h
+    hackclients/HackClientsMeta.cpp
+    hackclients/ImpactReleasesProvider.h
+    hackclients/ImpactReleasesProvider.cpp
+    hackclients/LiquidBounceProvider.h
+    hackclients/LiquidBounceProvider.cpp
+    hackclients/MeteorProvider.h
+    hackclients/MeteorProvider.cpp
+    hackclients/LambdaProvider.h
+    hackclients/LambdaProvider.cpp
+    hackclients/FDPProvider.h
+    hackclients/FDPProvider.cpp
+    hackclients/ImpactInstallTask.h
+    hackclients/ImpactInstallTask.cpp
+    hackclients/LiquidBounceInstallTask.h
+    hackclients/LiquidBounceInstallTask.cpp
+    hackclients/MeteorInstallTask.h
+    hackclients/MeteorInstallTask.cpp
+    hackclients/LambdaInstallTask.h
+    hackclients/LambdaInstallTask.cpp
+    hackclients/WurstProvider.h
+    hackclients/WurstProvider.cpp
+    hackclients/WurstInstallTask.h
+    hackclients/WurstInstallTask.cpp
+    hackclients/FDPInstallTask.h
+    hackclients/FDPInstallTask.cpp
+    hackclients/BaritoneMaven.h
+    hackclients/BaritoneMaven.cpp
+    hackclients/BaritoneProvider.h
+    hackclients/BaritoneProvider.cpp
+    hackclients/BaritoneInstallTask.h
+    hackclients/BaritoneInstallTask.cpp
+    hackclients/BaritoneModInstallTask.h
+    hackclients/BaritoneModInstallTask.cpp
 
     minecraft/GradleSpecifier.h
     minecraft/MinecraftInstance.cpp
@@ -747,7 +789,6 @@ set(LOGIC_SOURCES
     ${NET_SOURCES}
     ${LAUNCH_SOURCES}
     ${UPDATE_SOURCES}
-    ${NEWS_SOURCES}
     ${MINECRAFT_SOURCES}
     ${SCREENSHOTS_SOURCES}
     ${TASKS_SOURCES}
@@ -863,10 +904,6 @@ SET(LAUNCHER_SOURCES
     ui/themes/IconTheme.h
     ui/themes/ThemeManager.cpp
     ui/themes/ThemeManager.h
-    ui/themes/CatPack.cpp
-    ui/themes/CatPack.h
-    ui/themes/CatPainter.cpp
-    ui/themes/CatPainter.h
 
     # Processes
     LaunchMode.h
@@ -1021,6 +1058,23 @@ SET(LAUNCHER_SOURCES
     ui/pages/modplatform/ImportPage.cpp
     ui/pages/modplatform/ImportPage.h
 
+    ui/pages/modplatform/hackclients/HackClientsPage.cpp
+    ui/pages/modplatform/hackclients/HackClientsPage.h
+
+    ui/pages/global/AlteningSettingsPage.cpp
+    ui/pages/global/AlteningSettingsPage.h
+
+    ui/LaunchAccountUtils.cpp
+    ui/LaunchAccountUtils.h
+    ui/widgets/InstanceActionPanel.cpp
+    ui/widgets/InstanceActionPanel.h
+    icons/ThemedSvgIcon.cpp
+    icons/ThemedSvgIcon.h
+    ui/themes/ThemeStyle.cpp
+    ui/themes/ThemeStyle.h
+    ui/themes/ThemeTokens.cpp
+    ui/themes/ThemeTokens.h
+
     ui/pages/modplatform/OptionalModDialog.cpp
     ui/pages/modplatform/OptionalModDialog.h
 
@@ -1058,8 +1112,6 @@ SET(LAUNCHER_SOURCES
     ui/dialogs/NewComponentDialog.h
     ui/dialogs/NewInstanceDialog.cpp
     ui/dialogs/NewInstanceDialog.h
-    ui/dialogs/NewsDialog.cpp
-    ui/dialogs/NewsDialog.h
     ui/pagedialog/PageDialog.cpp
     ui/pagedialog/PageDialog.h
     ui/dialogs/ProgressDialog.cpp
@@ -1194,7 +1246,6 @@ if(WIN32)
 endif()
 
 qt_add_resources(LAUNCHER_RESOURCES
-    resources/backgrounds/backgrounds.qrc
     resources/multimc/multimc.qrc
     resources/pe_dark/pe_dark.qrc
     resources/pe_light/pe_light.qrc
@@ -1207,7 +1258,10 @@ qt_add_resources(LAUNCHER_RESOURCES
     resources/flat/flat.qrc
     resources/flat_white/flat_white.qrc
     resources/documents/documents.qrc
+    resources/backgrounds/backgrounds.qrc
     resources/shaders/shaders.qrc
+    resources/lucide/lucide.qrc
+    resources/themes/themes.qrc
     "${CMAKE_CURRENT_BINARY_DIR}/../${Launcher_Branding_LogoQRC}"
 )
 
@@ -1280,6 +1334,7 @@ target_link_libraries(Launcher_logic
     Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::NetworkAuth
     Qt${QT_VERSION_MAJOR}::OpenGL
+    Qt${QT_VERSION_MAJOR}::Svg
     ${Launcher_QT_DBUS}
     ${Launcher_QT_LIBS}
 )

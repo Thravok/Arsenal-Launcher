@@ -49,7 +49,6 @@
 #include "minecraft/auth/MinecraftAccount.h"
 
 class LaunchController;
-class NewsChecker;
 class QToolButton;
 class InstanceProxyModel;
 class LabeledToolButton;
@@ -58,10 +57,12 @@ class MinecraftInstance;
 class MinecraftLauncher;
 class BaseProfilerFactory;
 class InstanceView;
+class InstanceActionPanel;
 class KonamiCode;
 class InstanceTask;
-class LabeledToolButton;
 class Setting;
+class QFrame;
+class QHBoxLayout;
 
 namespace Ui {
 class MainWindow;
@@ -82,6 +83,9 @@ class MainWindow : public QMainWindow {
     void updatesAllowedChanged(bool allowed);
 
     void processURLs(QList<QUrl> urls);
+
+    /** Re-applies Arsenal layout after QMainWindow::restoreState (legacy toolbars must stay hidden). */
+    void reconcileLayoutWithSavedState();
    signals:
     void isClosing();
 
@@ -89,10 +93,6 @@ class MainWindow : public QMainWindow {
     QMenu* createPopupMenu() override;
 
    private slots:
-    void onCatToggled(bool);
-
-    void onCatChanged(int);
-
     void on_actionAbout_triggered();
 
     void on_actionAddInstance_triggered();
@@ -116,7 +116,6 @@ class MainWindow : public QMainWindow {
 
     void on_actionViewIconThemeFolder_triggered();
     void on_actionViewWidgetThemeFolder_triggered();
-    void on_actionViewCatPackFolder_triggered();
     void on_actionViewIconsFolder_triggered();
     void on_actionViewLogsFolder_triggered();
     void on_actionViewJavaFolder_triggered();
@@ -144,10 +143,6 @@ class MainWindow : public QMainWindow {
 #endif
 
     void on_actionOpenWiki_triggered();
-
-    void on_actionMoreNews_triggered();
-
-    void newsButtonClicked();
 
     void on_actionLaunchInstance_triggered();
 
@@ -203,7 +198,9 @@ class MainWindow : public QMainWindow {
 
     void repopulateAccountsMenu();
 
-    void updateNewsLabel();
+    void repopulateInstanceAccountMenu();
+
+    void changeInstanceAccount();
 
     void konamiTriggered();
 
@@ -223,12 +220,18 @@ class MainWindow : public QMainWindow {
     void retranslateUi();
 
     void addInstance(const QString& url = QString(), const QMap<QString, QString>& extra_info = {});
-    void setCatBackground(bool enabled);
-    void updateCatState();
     void updateInstanceToolIcon(QString new_icon);
     void setSelectedInstanceById(const QString& id);
     void updateStatusCenter();
     void setInstanceActionsEnabled(bool enabled);
+    void syncLaunchAccountGating();
+    void syncInstancePanelHeader();
+    void updateInstanceAccountButton();
+    void applyInstanceAccountOverride(const QString& profileId);
+    void clearInstanceAccountOverride();
+    bool instanceChromeBarVisible() const;
+    void enforceLegacyToolbarsHidden();
+    void applyThemedActionIcons();
 
     void runModalTask(Task* task);
     void instanceFromInstanceTask(InstanceTask* task);
@@ -238,17 +241,16 @@ class MainWindow : public QMainWindow {
     // these are managed by Qt's memory management model!
     InstanceView* view = nullptr;
     InstanceProxyModel* proxymodel = nullptr;
-    QToolButton* newsLabel = nullptr;
     QLabel* m_statusLeft = nullptr;
     QLabel* m_statusCenter = nullptr;
-    LabeledToolButton* changeIconButton = nullptr;
-    LabeledToolButton* renameButton = nullptr;
-    QToolButton* helpMenuButton = nullptr;
+    QFrame* m_instanceGridFrame = nullptr;
+    QFrame* m_instanceChromeBar = nullptr;
+    QHBoxLayout* m_instanceChromeLayout = nullptr;
+    InstanceActionPanel* m_instanceActionPanel = nullptr;
+    QToolButton* m_accountMenuButton = nullptr;
+    QToolButton* m_foldersMenuButton = nullptr;
+    QMenu* m_instanceAccountMenu = nullptr;
     KonamiCode* secretEventFilter = nullptr;
-
-    std::shared_ptr<Setting> instanceToolbarSetting = nullptr;
-
-    unique_qobject_ptr<NewsChecker> m_newsChecker;
 
     MinecraftInstance* m_selectedInstance = nullptr;
     QString m_currentInstIcon;

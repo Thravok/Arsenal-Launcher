@@ -291,9 +291,18 @@ bool AccountData::resumeStateFromV3(QJsonObject data)
         type = AccountType::MSA;
     } else if (typeS == "Offline") {
         type = AccountType::Offline;
+    } else if (typeS == "TheAltening") {
+        type = AccountType::TheAltening;
     } else {
         qWarning() << "Failed to parse account data: type is not recognized.";
         return false;
+    }
+
+    if (type == AccountType::TheAltening) {
+        theAlteningApiKey = data.value("alteningApiKey").toString();
+        theAlteningLicenseType = data.value("alteningLicenseType").toString();
+        theAlteningLicenseExpires = data.value("alteningLicenseExpires").toString();
+        theAlteningAltUsername = data.value("alteningAltUsername").toString();
     }
 
     if (type == AccountType::MSA) {
@@ -335,6 +344,12 @@ QJsonObject AccountData::saveState() const
         tokenToJSONV3(output, mojangservicesToken, "xrp-mc");
     } else if (type == AccountType::Offline) {
         output["type"] = "Offline";
+    } else if (type == AccountType::TheAltening) {
+        output["type"] = "TheAltening";
+        output["alteningApiKey"] = theAlteningApiKey;
+        output["alteningLicenseType"] = theAlteningLicenseType;
+        output["alteningLicenseExpires"] = theAlteningLicenseExpires;
+        output["alteningAltUsername"] = theAlteningAltUsername;
     }
 
     tokenToJSONV3(output, yggdrasilToken, "ygg");
@@ -356,7 +371,25 @@ QString AccountData::profileId() const
 QString AccountData::profileName() const
 {
     if (minecraftProfile.name.size() == 0) {
+        // Altening generate API usernames are often masked with '*'; never use them as the
+        // join name. Prefer them only as a pre-auth UI label after stripping invalid chars.
+        if (type == AccountType::TheAltening && !theAlteningAltUsername.isEmpty()) {
+            QString label = theAlteningAltUsername;
+            label.remove(QLatin1Char('*'));
+            if (!label.isEmpty()) {
+                return label;
+            }
+        }
         return QObject::tr("No Minecraft profile");
+    }
+
+    // Older builds stored The Altening's privacy-masked name (with '*') as the profile name.
+    if (type == AccountType::TheAltening && minecraftProfile.name.contains(QLatin1Char('*'))) {
+        QString cleaned = minecraftProfile.name;
+        cleaned.remove(QLatin1Char('*'));
+        if (!cleaned.isEmpty()) {
+            return cleaned;
+        }
     }
 
     return minecraftProfile.name;

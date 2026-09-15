@@ -56,6 +56,7 @@
 #include "launch/steps/TextPrint.h"
 
 #include "minecraft/launch/AutoInstallJava.h"
+#include "minecraft/launch/ConfigureAuthlibInjector.h"
 #include "minecraft/launch/ClaimAccount.h"
 #include "minecraft/launch/CreateGameFolders.h"
 #include "minecraft/launch/EnsureAvailableMemory.h"
@@ -536,6 +537,10 @@ QStringList MinecraftInstance::extraArguments()
         QStringList jar, temp1, temp2, temp3;
         agent.library->getApplicableFiles(runtimeContext(), jar, temp1, temp2, temp3, getLocalLibraryPath());
         list.append("-javaagent:" + jar[0] + (agent.argument.isEmpty() ? "" : "=" + agent.argument));
+    }
+    if (!m_authlibinjector_javaagent->isNull()) {
+        list.append(QString("-javaagent:%1").arg(*m_authlibinjector_javaagent));
+        list.append(*m_authlibinjector_jvm_args);
     }
 
     {
@@ -1138,6 +1143,9 @@ QList<LaunchStep::Ptr> MinecraftInstance::createUpdateTask()
 
 LaunchTask* MinecraftInstance::createLaunchTask(AuthSessionPtr session, MinecraftTarget::Ptr targetToJoin)
 {
+    *m_authlibinjector_javaagent = QString();
+    m_authlibinjector_jvm_args->clear();
+
     updateRuntimeContext();
     auto process = LaunchTask::create(this);
     auto pptr = process.get();
@@ -1193,6 +1201,11 @@ LaunchTask* MinecraftInstance::createLaunchTask(AuthSessionPtr session, Minecraf
         process->appendStep(makeShared<CheckJava>(pptr));
         // verify that minimum Java requirements are met
         process->appendStep(makeShared<VerifyJavaInstall>(pptr));
+    }
+
+    if (session && !session->authlib_injector_base_url.isEmpty()) {
+        process->appendStep(makeShared<ConfigureAuthlibInjector>(
+            pptr, session->authlib_injector_base_url, m_authlibinjector_javaagent, m_authlibinjector_jvm_args));
     }
 
     // run pre-launch command if that's needed

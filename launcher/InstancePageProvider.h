@@ -30,7 +30,7 @@ class InstancePageProvider : protected QObject, public BasePageProvider {
         values.append(new LogPage(inst));
         values.append(new VersionPage(inst));
         values.append(ManagedPackPage::createPage(inst));
-        auto modsPage = new ModFolderPage(inst, inst->loaderModList());
+        auto modsPage = new ModFolderPage(inst, inst->loaderModList(), nullptr, true);
         modsPage->setFilter("%1 (*.zip *.jar *.litemod *.nilmod)");
         values.append(modsPage);
         values.append(new CoreModFolderPage(inst, inst->coreModList()));

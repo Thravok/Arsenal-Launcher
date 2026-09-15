@@ -1,54 +1,24 @@
 // SPDX-License-Identifier: GPL-3.0-only
-/*
- *  Prism Launcher - Minecraft Launcher
- *  Copyright (C) 2022 Sefa Eyeoglu <contact@scrumplex.net>
- *  Copyright (c) 2022 Jamie Mansfield <jmansfield@cadixdev.org>
- *
- *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation, version 3.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
- *
- * This file incorporates work covered by the following copyright and
- * permission notice:
- *
- *      Copyright 2013-2021 MultiMC Contributors
- *
- *      Licensed under the Apache License, Version 2.0 (the "License");
- *      you may not use this file except in compliance with the License.
- *      You may obtain a copy of the License at
- *
- *          http://www.apache.org/licenses/LICENSE-2.0
- *
- *      Unless required by applicable law or agreed to in writing, software
- *      distributed under the License is distributed on an "AS IS" BASIS,
- *      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *      See the License for the specific language governing permissions and
- *      limitations under the License.
- */
 
 #include "AccountListPage.h"
-#include "ui/dialogs/skins/SkinManageDialog.h"
 #include "ui_AccountListPage.h"
 
 #include <QItemSelectionModel>
 #include <QMenu>
-#include <QPushButton>
+#include <QMessageBox>
 
-#include <QDebug>
-
+#include "Application.h"
+#include "BuildConfig.h"
+#include "minecraft/auth/AccountData.h"
+#include "minecraft/auth/MinecraftAccount.h"
+#include "minecraft/auth/TheAlteningApi.h"
+#include "minecraft/auth/TheAlteningConfig.h"
+#include "settings/SettingsObject.h"
 #include "ui/dialogs/ChooseOfflineNameDialog.h"
 #include "ui/dialogs/CustomMessageBox.h"
 #include "ui/dialogs/MSALoginDialog.h"
-
-#include "Application.h"
+#include "ui/dialogs/ProgressDialog.h"
+#include "ui/dialogs/skins/SkinManageDialog.h"
 
 AccountListPage::AccountListPage(QWidget* parent) : QMainWindow(parent), ui(new Ui::AccountListPage)
 {
@@ -67,12 +37,12 @@ AccountListPage::AccountListPage(QWidget* parent) : QMainWindow(parent), ui(new 
     ui->listView->header()->setSectionResizeMode(AccountList::VListColumns::StatusColumn, QHeaderView::ResizeToContents);
     ui->listView->setSelectionMode(QAbstractItemView::SingleSelection);
 
-    // Expand the account column
-
     QItemSelectionModel* selectionModel = ui->listView->selectionModel();
 
     connect(selectionModel, &QItemSelectionModel::selectionChanged, this,
-            [this]([[maybe_unused]] const QItemSelection& sel, [[maybe_unused]] const QItemSelection& dsel) { updateButtonStates(); });
+            [this]([[maybe_unused]] const QItemSelection& sel, [[maybe_unused]] const QItemSelection& dsel) {
+                updateButtonStates();
+            });
     connect(ui->listView, &VersionListView::customContextMenuRequested, this, &AccountListPage::ShowContextMenu);
     connect(ui->listView, &VersionListView::activated, this,
             [this](const QModelIndex& index) { m_accounts->setDefaultAccount(m_accounts->at(index.row())); });
@@ -82,12 +52,13 @@ AccountListPage::AccountListPage(QWidget* parent) : QMainWindow(parent), ui(new 
     connect(m_accounts, &AccountList::defaultAccountChanged, this, &AccountListPage::listChanged);
 
     updateButtonStates();
+    migrateAlteningApiKeyFromAccounts();
 
-    // Xbox authentication won't work without a client identifier, so disable the button if it is missing
     if (~APPLICATION->capabilities() & Application::SupportsMSA) {
         ui->actionAddMicrosoft->setVisible(false);
         ui->actionAddMicrosoft->setToolTip(tr("No Microsoft Authentication client ID was set."));
     }
+    ui->actionAddAuthlibInjector->setVisible(false);
 }
 
 AccountListPage::~AccountListPage()
@@ -98,6 +69,12 @@ AccountListPage::~AccountListPage()
 void AccountListPage::retranslate()
 {
     ui->retranslateUi(this);
+}
+
+void AccountListPage::openedImpl()
+{
+    migrateAlteningApiKeyFromAccounts();
+    updateButtonStates();
 }
 
 void AccountListPage::ShowContextMenu(const QPoint& pos)
@@ -127,10 +104,86 @@ void AccountListPage::listChanged()
     updateButtonStates();
 }
 
+void AccountListPage::on_actionAddAuthlibInjector_triggered()
+{
+}
+
+void AccountListPage::migrateAlteningApiKeyFromAccounts()
+{
+    auto settings = APPLICATION->settings();
+    if (!TheAltening::storedApiKey().isEmpty()) {
+        return;
+    }
+
+    for (int i = 0; i < m_accounts->count(); ++i) {
+        auto account = m_accounts->at(i);
+        if (!account) {
+            continue;
+        }
+        auto* data = account->accountData();
+        if (data->type == AccountType::TheAltening && !data->theAlteningApiKey.isEmpty()) {
+            settings->set(TheAltening::ApiKeySettingName, data->theAlteningApiKey);
+            return;
+        }
+    }
+}
+
+void AccountListPage::on_actionGenerateAltening_triggered()
+{
+    migrateAlteningApiKeyFromAccounts();
+    const QString apiKey = TheAltening::storedApiKey();
+    if (apiKey.isEmpty()) {
+        auto reply = QMessageBox::question(
+            this,
+            tr("The Altening API Key Required"),
+            tr("Set your The Altening API key in Settings → The Altening before generating an account.\n\nOpen settings now?"),
+            QMessageBox::Yes | QMessageBox::No,
+            QMessageBox::Yes);
+        if (reply == QMessageBox::Yes) {
+            APPLICATION->ShowGlobalSettings(this, QStringLiteral("the-altening"));
+        }
+        updateButtonStates();
+        return;
+    }
+
+    MinecraftAccountPtr account = MinecraftAccount::createTheAlteningFromApiKey(apiKey);
+    auto loginTask = account->login();
+    ProgressDialog prog(this);
+    if (prog.execWithTask(loginTask.get()) != QDialog::Accepted) {
+        CustomMessageBox::selectable(this, tr("The Altening"), tr("Failed to generate a The Altening account."),
+                                     QMessageBox::Warning)
+            ->exec();
+        return;
+    }
+
+    m_accounts->addAccount(account);
+    if (!m_accounts->defaultAccount()) {
+        m_accounts->setDefaultAccount(account);
+    }
+
+    const int row = m_accounts->findAccountByProfileId(account->profileId());
+    if (row >= 0) {
+        const QModelIndex idx = m_accounts->index(row, 0);
+        ui->listView->setCurrentIndex(idx);
+        ui->listView->selectionModel()->select(idx, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+    }
+    updateButtonStates();
+}
+
 void AccountListPage::on_actionAddMicrosoft_triggered()
 {
-    auto account = MSALoginDialog::newAccount(this);
-    if (account) {
+    if (BuildConfig.BUILD_PLATFORM == "osx64") {
+        CustomMessageBox::selectable(
+            this,
+            tr("Microsoft Accounts not available"),
+            tr("Microsoft accounts are only usable on macOS 10.13 or newer, with fully updated %1.\n\n"
+               "Please update both your operating system and %1.")
+                .arg(BuildConfig.LAUNCHER_NAME),
+            QMessageBox::Warning)
+            ->exec();
+        return;
+    }
+    if (auto account = MSALoginDialog::newAccount(this)) {
         m_accounts->addAccount(account);
         if (m_accounts->count() == 1) {
             m_accounts->setDefaultAccount(account);
@@ -141,10 +194,12 @@ void AccountListPage::on_actionAddMicrosoft_triggered()
 void AccountListPage::on_actionAddOffline_triggered()
 {
     if (!m_accounts->anyAccountIsValid()) {
-        QMessageBox::warning(this, tr("Error"),
-                             tr("You must add a Microsoft account that owns Minecraft before you can add an offline account."
-                                "<br><br>"
-                                "If you have lost your account you can contact Microsoft for support."));
+        QMessageBox::warning(
+            this,
+            tr("Error"),
+            tr("You must add a Microsoft account that owns Minecraft before you can add an offline account."
+               "<br><br>"
+               "If you have lost your account you can contact Microsoft for support."));
         return;
     }
 
@@ -154,7 +209,7 @@ void AccountListPage::on_actionAddOffline_triggered()
     }
 
     if (const MinecraftAccountPtr account = MinecraftAccount::createOffline(dialog.getUsername())) {
-        account->login()->start();  // The task will complete here.
+        account->login()->start();
         m_accounts->addAccount(account);
         if (m_accounts->count() == 1) {
             m_accounts->setDefaultAccount(account);
@@ -171,18 +226,16 @@ void AccountListPage::on_actionRemove_triggered()
         return;
     }
     QModelIndexList selection = ui->listView->selectionModel()->selectedIndexes();
-    if (selection.size() > 0) {
-        QModelIndex selected = selection.first();
-        m_accounts->removeAccount(selected);
+    if (!selection.isEmpty()) {
+        m_accounts->removeAccount(selection.first());
     }
 }
 
 void AccountListPage::on_actionRefresh_triggered()
 {
     QModelIndexList selection = ui->listView->selectionModel()->selectedIndexes();
-    if (selection.size() > 0) {
-        QModelIndex selected = selection.first();
-        MinecraftAccountPtr account = selected.data(AccountList::PointerRole).value<MinecraftAccountPtr>();
+    if (!selection.isEmpty()) {
+        MinecraftAccountPtr account = selection.first().data(AccountList::PointerRole).value<MinecraftAccountPtr>();
         m_accounts->requestRefresh(account->internalId());
     }
 }
@@ -190,9 +243,8 @@ void AccountListPage::on_actionRefresh_triggered()
 void AccountListPage::on_actionSetDefault_triggered()
 {
     QModelIndexList selection = ui->listView->selectionModel()->selectedIndexes();
-    if (selection.size() > 0) {
-        QModelIndex selected = selection.first();
-        MinecraftAccountPtr account = selected.data(AccountList::PointerRole).value<MinecraftAccountPtr>();
+    if (!selection.isEmpty()) {
+        MinecraftAccountPtr account = selection.first().data(AccountList::PointerRole).value<MinecraftAccountPtr>();
         m_accounts->setDefaultAccount(account);
     }
 }
@@ -204,27 +256,26 @@ void AccountListPage::on_actionNoDefault_triggered()
 
 void AccountListPage::updateButtonStates()
 {
-    // If there is no selection, disable buttons that require something selected.
     QModelIndexList selection = ui->listView->selectionModel()->selectedIndexes();
-    bool hasSelection = !selection.empty();
+    const bool hasSelection = !selection.empty();
     bool accountIsReady = false;
     bool accountIsOnline = false;
-    bool accountCanMoveUp = false;
-    bool accountCanMoveDown = false;
     if (hasSelection) {
-        QModelIndex selected = selection.first();
-        MinecraftAccountPtr account = selected.data(AccountList::PointerRole).value<MinecraftAccountPtr>();
+        MinecraftAccountPtr account = selection.first().data(AccountList::PointerRole).value<MinecraftAccountPtr>();
         accountIsReady = !account->isActive();
         accountIsOnline = account->accountType() != AccountType::Offline;
-
-        accountCanMoveUp = selected.row() > 0;
-        int indexOfLast = m_accounts->count() - 1;
-        accountCanMoveDown = selected.row() < indexOfLast;
     }
     ui->actionRemove->setEnabled(accountIsReady);
     ui->actionSetDefault->setEnabled(accountIsReady);
-    ui->actionManageSkins->setEnabled(accountIsReady && accountIsOnline);
+    ui->actionUploadSkin->setEnabled(accountIsReady && accountIsOnline);
+    ui->actionDeleteSkin->setEnabled(accountIsReady && accountIsOnline);
     ui->actionRefresh->setEnabled(accountIsReady && accountIsOnline);
+
+    const bool hasAlteningKey = !TheAltening::storedApiKey().isEmpty();
+    ui->actionGenerateAltening->setEnabled(hasAlteningKey);
+    ui->actionGenerateAltening->setToolTip(hasAlteningKey
+                                               ? tr("Generate a new The Altening alt. Refresh renews the selected alt's session.")
+                                               : tr("Set the API key in Settings → The Altening before generating an account."));
 
     if (m_accounts->defaultAccount().get() == nullptr) {
         ui->actionNoDefault->setEnabled(false);
@@ -233,36 +284,20 @@ void AccountListPage::updateButtonStates()
         ui->actionNoDefault->setEnabled(true);
         ui->actionNoDefault->setChecked(false);
     }
-    ui->actionMoveUp->setEnabled(accountCanMoveUp);
-    ui->actionMoveDown->setEnabled(accountCanMoveDown);
-    ui->listView->resizeColumnToContents(3);
 }
 
-void AccountListPage::on_actionManageSkins_triggered()
+void AccountListPage::on_actionUploadSkin_triggered()
 {
     QModelIndexList selection = ui->listView->selectionModel()->selectedIndexes();
-    if (selection.size() > 0) {
-        QModelIndex selected = selection.first();
-        MinecraftAccountPtr account = selected.data(AccountList::PointerRole).value<MinecraftAccountPtr>();
-        SkinManageDialog dialog(this, account);
-        dialog.exec();
+    if (selection.isEmpty()) {
+        return;
     }
+    MinecraftAccountPtr account = selection.first().data(AccountList::PointerRole).value<MinecraftAccountPtr>();
+    SkinManageDialog dialog(this, account);
+    dialog.exec();
 }
 
-void AccountListPage::on_actionMoveUp_triggered()
+void AccountListPage::on_actionDeleteSkin_triggered()
 {
-    QModelIndexList selection = ui->listView->selectionModel()->selectedIndexes();
-    if (selection.size() > 0) {
-        QModelIndex selected = selection.first();
-        m_accounts->moveAccount(selected, -1);
-    }
-}
-
-void AccountListPage::on_actionMoveDown_triggered()
-{
-    QModelIndexList selection = ui->listView->selectionModel()->selectedIndexes();
-    if (selection.size() > 0) {
-        QModelIndex selected = selection.first();
-        m_accounts->moveAccount(selected, 1);
-    }
+    on_actionUploadSkin_triggered();
 }

@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Name=@Launcher_DisplayName@
+Comment=A custom Minecraft launcher with a Hack Clients tab for Impact, LiquidBounce, and more.
+Type=Application
+Terminal=false
+Exec=@Launcher_APP_BINARY_NAME@
+StartupNotify=true
+Icon=@Launcher_AppID@
+Categories=Game;PackageManager;
+Keywords=game;minecraft;launcher;mc;arsenal;arsenallauncher;
+StartupWMClass=@Launcher_CommonName@

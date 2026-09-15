@@ -88,7 +88,7 @@ struct MinecraftProfile {
     Validity validity = Validity::None;
 };
 
-enum class AccountType { MSA, Offline };
+enum class AccountType { MSA, Offline, TheAltening };
 
 enum class AccountState { Unchecked, Offline, Working, Online, Disabled, Errored, Expired, Gone };
 
@@ -105,6 +105,12 @@ struct AccountData {
     QString lastError() const;
 
     AccountType type = AccountType::MSA;
+
+    QString theAlteningApiKey;
+    QString theAlteningLicenseType;
+    QString theAlteningLicenseExpires;
+    QString theAlteningAltUsername;
+    QString theAlteningPendingPassword;
 
     QString msaClientID;
     Token msaToken;

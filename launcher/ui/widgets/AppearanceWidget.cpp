@@ -38,7 +38,6 @@
 #include "ui_AppearanceWidget.h"
 
 #include <DesktopServices.h>
-#include <QGraphicsOpacityEffect>
 #include "BuildConfig.h"
 #include "ui/themes/ITheme.h"
 #include "ui/themes/ThemeManager.h"
@@ -51,26 +50,17 @@ AppearanceWidget::AppearanceWidget(bool themesOnly, QWidget* parent)
 {
     m_ui->setupUi(this);
 
-    connect(m_ui->enableCatCheckBox, &QCheckBox::toggled, m_ui->catSettingsBox, &QWidget::setEnabled);
-
-    m_ui->catPreview->setGraphicsEffect(new QGraphicsOpacityEffect(this));
-
     m_defaultFormat = QTextCharFormat(m_ui->consolePreview->currentCharFormat());
 
     if (themesOnly) {
-        m_ui->catPackLabel->hide();
-        m_ui->catPackComboBox->hide();
-        m_ui->catPackFolder->hide();
         m_ui->settingsBox->hide();
         m_ui->consolePreview->hide();
-        m_ui->catPreview->hide();
         loadThemeSettings();
     } else {
         loadSettings();
         loadThemeSettings();
 
         updateConsolePreview();
-        updateCatPreview();
     }
 
     connect(m_ui->fontSizeBox, &QSpinBox::valueChanged, this, &AppearanceWidget::updateConsolePreview);
@@ -78,15 +68,11 @@ AppearanceWidget::AppearanceWidget(bool themesOnly, QWidget* parent)
 
     connect(m_ui->iconsComboBox, &QComboBox::currentIndexChanged, this, &AppearanceWidget::applyIconTheme);
     connect(m_ui->widgetStyleComboBox, &QComboBox::currentIndexChanged, this, &AppearanceWidget::applyWidgetTheme);
-    connect(m_ui->catPackComboBox, &QComboBox::currentIndexChanged, this, &AppearanceWidget::applyCatTheme);
-    connect(m_ui->catOpacitySlider, &QAbstractSlider::valueChanged, this, &AppearanceWidget::updateCatPreview);
 
     connect(m_ui->iconsFolder, &QPushButton::clicked, this,
             [] { DesktopServices::openPath(APPLICATION->themeManager()->getIconThemesFolder().path()); });
     connect(m_ui->widgetStyleFolder, &QPushButton::clicked, this,
             [] { DesktopServices::openPath(APPLICATION->themeManager()->getApplicationThemesFolder().path()); });
-    connect(m_ui->catPackFolder, &QPushButton::clicked, this,
-            [] { DesktopServices::openPath(APPLICATION->themeManager()->getCatPacksFolder().path()); });
     connect(m_ui->reloadThemesButton, &QPushButton::pressed, this, &AppearanceWidget::loadThemeSettings);
 }
 
@@ -101,14 +87,6 @@ void AppearanceWidget::applySettings()
     QString consoleFontFamily = m_ui->consoleFont->currentFont().family();
     settings->set("ConsoleFont", consoleFontFamily);
     settings->set("ConsoleFontSize", m_ui->fontSizeBox->value());
-    const bool catEnabled = m_ui->enableCatCheckBox->isChecked();
-    settings->set("EnableCat", catEnabled);
-    if (!catEnabled) {
-        settings->set("TheCat", false);
-    }
-    settings->set("CatOpacity", m_ui->catOpacitySlider->value());
-    auto catFit = m_ui->catFitComboBox->currentIndex();
-    settings->set("CatFit", catFit == 0 ? "fit" : catFit == 1 ? "fill" : "strech");
 }
 
 void AppearanceWidget::loadSettings()
@@ -124,12 +102,6 @@ void AppearanceWidget::loadSettings()
         fontSize = 11;
     }
     m_ui->fontSizeBox->setValue(fontSize);
-
-    m_ui->enableCatCheckBox->setChecked(settings->get("EnableCat").toBool());
-    m_ui->catOpacitySlider->setValue(settings->get("CatOpacity").toInt());
-
-    auto catFit = settings->get("CatFit").toString();
-    m_ui->catFitComboBox->setCurrentIndex(catFit == "fit" ? 0 : catFit == "fill" ? 1 : 2);
 }
 
 void AppearanceWidget::retranslateUi()
@@ -145,6 +117,8 @@ void AppearanceWidget::applyIconTheme(int index)
     if (originalIconTheme != newIconTheme) {
         settings->set("IconTheme", newIconTheme);
         APPLICATION->themeManager()->applyCurrentlySelectedTheme();
+        // Refresh open windows that bake themed pixmaps into actions.
+        emit APPLICATION->globalSettingsApplied();
     }
 }
 
@@ -156,22 +130,10 @@ void AppearanceWidget::applyWidgetTheme(int index)
     if (originalAppTheme != newAppTheme) {
         settings->set("ApplicationTheme", newAppTheme);
         APPLICATION->themeManager()->applyCurrentlySelectedTheme();
+        emit APPLICATION->globalSettingsApplied();
     }
 
     updateConsolePreview();
-}
-
-void AppearanceWidget::applyCatTheme(int index)
-{
-    auto settings = APPLICATION->settings();
-    auto originalCat = settings->get("BackgroundCat").toString();
-    auto newCat = m_ui->catPackComboBox->itemData(index).toString();
-    if (originalCat != newCat) {
-        settings->set("BackgroundCat", newCat);
-    }
-
-    APPLICATION->currentCatChanged(index);
-    updateCatPreview();
 }
 
 void AppearanceWidget::loadThemeSettings()
@@ -180,11 +142,9 @@ void AppearanceWidget::loadThemeSettings()
 
     m_ui->iconsComboBox->blockSignals(true);
     m_ui->widgetStyleComboBox->blockSignals(true);
-    m_ui->catPackComboBox->blockSignals(true);
 
     m_ui->iconsComboBox->clear();
     m_ui->widgetStyleComboBox->clear();
-    m_ui->catPackComboBox->clear();
 
     SettingsObject* settings = APPLICATION->settings();
 
@@ -194,7 +154,9 @@ void AppearanceWidget::loadThemeSettings()
     for (int i = 0; i < iconThemes.count(); ++i) {
         const IconTheme* theme = iconThemes[i];
 
-        QIcon iconForComboBox = QIcon(theme->path() + "/scalable/settings");
+        QIcon iconForComboBox = QIcon(theme->path() + "/scalable/settings.svg");
+        if (iconForComboBox.isNull())
+            iconForComboBox = QIcon(theme->path() + "/scalable/settings");
         m_ui->iconsComboBox->addItem(iconForComboBox, theme->name(), theme->id());
 
         if (currentIconTheme == theme->id())
@@ -215,23 +177,8 @@ void AppearanceWidget::loadThemeSettings()
             m_ui->widgetStyleComboBox->setCurrentIndex(i);
     }
 
-    if (!m_themesOnly) {
-        const QString currentCat = settings->get("BackgroundCat").toString();
-        const auto cats = APPLICATION->themeManager()->getValidCatPacks();
-        for (int i = 0; i < cats.count(); ++i) {
-            const CatPack* cat = cats[i];
-
-            QIcon catIcon = QIcon(QString("%1").arg(cat->path()));
-            m_ui->catPackComboBox->addItem(catIcon, cat->name(), cat->id());
-
-            if (currentCat == cat->id())
-                m_ui->catPackComboBox->setCurrentIndex(i);
-        }
-    }
-
     m_ui->iconsComboBox->blockSignals(false);
     m_ui->widgetStyleComboBox->blockSignals(false);
-    m_ui->catPackComboBox->blockSignals(false);
 }
 
 void AppearanceWidget::updateConsolePreview()
@@ -275,14 +222,4 @@ void AppearanceWidget::updateConsolePreview()
     print(tr("[WARN] A not so spooky warning."), MessageLevel::Warning);
     print(tr("[DEBUG] A secret debugging message..."), MessageLevel::Debug);
     print(tr("[FATAL] A terrifying fatal error!"), MessageLevel::Fatal);
-}
-
-void AppearanceWidget::updateCatPreview()
-{
-    QIcon catPackIcon(APPLICATION->themeManager()->getCatPack());
-    m_ui->catPreview->setIcon(catPackIcon);
-
-    auto effect = dynamic_cast<QGraphicsOpacityEffect*>(m_ui->catPreview->graphicsEffect());
-    if (effect)
-        effect->setOpacity(m_ui->catOpacitySlider->value() / 100.0);
 }

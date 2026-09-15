@@ -58,6 +58,7 @@ class AtlPage : public QWidget, public ModpackProviderBasePage {
     virtual QString displayName() const override { return "ATLauncher"; }
     virtual QIcon icon() const override { return QIcon::fromTheme("atlauncher"); }
     virtual QString id() const override { return "atl"; }
+    QString sidebarGroup() const override { return QStringLiteral("more"); }
     virtual QString helpPage() const override { return "ATL-platform"; }
     virtual bool shouldDisplay() const override;
     void retranslate() override;

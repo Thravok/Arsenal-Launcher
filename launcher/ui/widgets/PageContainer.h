@@ -52,6 +52,9 @@ class QListView;
 class QLineEdit;
 class QStackedLayout;
 class QGridLayout;
+class QToolButton;
+class QMenu;
+class QWidget;
 
 class PageContainer : public QWidget, public BasePageContainer {
     Q_OBJECT
@@ -95,6 +98,9 @@ class PageContainer : public QWidget, public BasePageContainer {
    private:
     void createUI();
     void retranslate();
+    void rebuildMorePlatformsMenu();
+    void setMoreButtonActivePage(BasePage* page);
+    void showPage(BasePage* page);
 
    public slots:
     void help();
@@ -105,7 +111,6 @@ class PageContainer : public QWidget, public BasePageContainer {
 
    private slots:
     void currentChanged(const QModelIndex& current);
-    void showPage(int row);
 
    private:
     BasePageContainer* m_container = nullptr;
@@ -114,6 +119,9 @@ class PageContainer : public QWidget, public BasePageContainer {
     PageModel* m_model;
     QStackedLayout* m_pageStack;
     QListView* m_pageList;
+    QWidget* m_sidebarColumn = nullptr;
+    QToolButton* m_morePlatformsButton = nullptr;
+    QMenu* m_morePlatformsMenu = nullptr;
     QLabel* m_header;
     QGridLayout* m_layout;
 };

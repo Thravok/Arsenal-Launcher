@@ -1,0 +1,10 @@
+[Icon Theme]
+Name=Lucide
+Comment=Lucide stroke icons for Arsenal Launcher
+Directories=scalable
+
+[scalable]
+Size=48
+Type=Scalable
+MinSize=16
+MaxSize=256

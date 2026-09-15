@@ -1,0 +1,8 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource prefix="/">
+        <file>org.arsenallauncher.Arsenal.svg</file>
+        <file alias="org.prismlauncher.PrismLauncher.svg">org.arsenallauncher.Arsenal.svg</file>
+        <file alias="org.polymc.PolyMC.svg">org.arsenallauncher.Arsenal.svg</file>
+    </qresource>
+</RCC>
