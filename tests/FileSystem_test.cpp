@@ -304,6 +304,45 @@ class FileSystemTest : public QObject {
         }
     }
 
+    void test_copy_empty_directories()
+    {
+        QTemporaryDir srcDir;
+        QTemporaryDir dstDir;
+        QVERIFY(srcDir.isValid());
+        QVERIFY(dstDir.isValid());
+
+        const QString emptyPath = FS::PathCombine(srcDir.path(), "empty_folder");
+        const QString nestedEmptyPath = FS::PathCombine(srcDir.path(), "nested", "also_empty");
+        QVERIFY(QDir().mkpath(emptyPath));
+        QVERIFY(QDir().mkpath(nestedEmptyPath));
+
+        {
+            QFile f(FS::PathCombine(srcDir.path(), "keep.txt"));
+            QVERIFY(f.open(QIODevice::WriteOnly));
+            f.write("x");
+        }
+
+        {
+            QDir target(FS::PathCombine(dstDir.path(), "default"));
+            FS::copy c(srcDir.path(), target.path());
+            QVERIFY(c());
+            QVERIFY(QFile::exists(target.filePath("keep.txt")));
+            QVERIFY(!target.exists("empty_folder"));
+            QVERIFY(!QDir(target.filePath("nested/also_empty")).exists());
+        }
+
+        {
+            QDir target(FS::PathCombine(dstDir.path(), "with_dirs"));
+            FS::copy c(srcDir.path(), target.path());
+            c.copyDirectories(true);
+            QVERIFY(c());
+            QVERIFY(QFile::exists(target.filePath("keep.txt")));
+            QVERIFY(target.exists("empty_folder"));
+            QVERIFY(QDir(target.filePath("empty_folder")).exists());
+            QVERIFY(QDir(target.filePath("nested/also_empty")).exists());
+        }
+    }
+
     void test_getDesktop() { QCOMPARE(FS::getDesktopDir(), QStandardPaths::writableLocation(QStandardPaths::DesktopLocation)); }
 
     void test_link()

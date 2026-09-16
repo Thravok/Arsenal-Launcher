@@ -6,10 +6,10 @@
 #include "QObjectPtr.h"
 #include "net/NetJob.h"
 
+#include <QDateTime>
+#include <QMap>
 #include <QNetworkAccessManager>
 #include <QObject>
-#include <QMap>
-#include <QDateTime>
 
 namespace HackClients {
 
@@ -27,6 +27,9 @@ class ImpactReleasesProvider : public QObject {
     QList<ImpactRelease> latestStablePerMinecraft() const;
     ImpactRelease latestStableForMinecraft(const QString& mcVersion) const;
 
+    /** Parse a releases.json payload. Public so unit tests can cover catalog edge cases without the network. */
+    bool parse(const QByteArray& data);
+
    signals:
     void refreshed();
     void failed(QString reason);
@@ -36,8 +39,6 @@ class ImpactReleasesProvider : public QObject {
     void onDownloadFailed(QString reason);
 
    private:
-    bool parse(const QByteArray& data);
-
     QNetworkAccessManager* m_network;
     NetJob::Ptr m_job;
     QByteArray m_response;

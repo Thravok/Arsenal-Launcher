@@ -25,6 +25,9 @@ class MeteorAddonsProvider : public QObject {
     QString lastError() const { return m_lastError; }
     bool isLoaded() const { return m_loaded; }
 
+    /** Parse a catalog payload. Public so unit tests can cover catalog edge cases without the network. */
+    bool parse(const QByteArray& data);
+
    signals:
     void refreshed();
     void failed(QString reason);
@@ -34,8 +37,6 @@ class MeteorAddonsProvider : public QObject {
     void onDownloadFailed(QString reason);
 
    private:
-    bool parse(const QByteArray& data);
-
     QNetworkAccessManager* m_network = nullptr;
     NetJob::Ptr m_job;
     QByteArray m_response;

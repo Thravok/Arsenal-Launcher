@@ -1,3 +1,5 @@
+#include <QProcess>
+#include <QProcessEnvironment>
 #include <QTest>
 
 #include <Commandline.h>
@@ -32,6 +34,69 @@ class CommandlineTest : public QObject {
         QFETCH(QStringList, expected);
 
         QCOMPARE(Commandline::splitArgs(args), expected);
+    }
+
+    void test_expandVariables_data()
+    {
+        QTest::addColumn<QString>("input");
+        QTest::addColumn<QString>("expected");
+
+        QTest::newRow("brace form") << "open ${WORLD_PATH}" << "open /tmp/saves/New World";
+        QTest::newRow("bare form") << "open $WORLD_PATH" << "open /tmp/saves/New World";
+        QTest::newRow("missing variable stays") << "keep ${MISSING}" << "keep ${MISSING}";
+        QTest::newRow("empty variable stays") << "keep ${EMPTY}" << "keep ${EMPTY}";
+        QTest::newRow("dollar without name") << "price is $5" << "price is $5";
+        QTest::newRow("unclosed brace stays") << "keep ${WORLD_PATH" << "keep ${WORLD_PATH";
+        QTest::newRow("adjacent vars") << "${WORLD_PATH}-$INST" << "/tmp/saves/New World-demo";
+        QTest::newRow("windows path value") << "-Dlib=${LIB}" << "-Dlib=C:\\Users\\test user\\glfw3.dll";
+    }
+    void test_expandVariables()
+    {
+        QFETCH(QString, input);
+        QFETCH(QString, expected);
+
+        QProcessEnvironment env;
+        env.insert("WORLD_PATH", "/tmp/saves/New World");
+        env.insert("INST", "demo");
+        env.insert("EMPTY", "");
+        env.insert("LIB", "C:\\Users\\test user\\glfw3.dll");
+
+        QCOMPARE(Commandline::expandVariables(input, env), expected);
+    }
+
+    void test_process_expands_after_split()
+    {
+        QProcessEnvironment env;
+        env.insert("WORLD_PATH", "/tmp/saves/New World");
+        env.insert("LIB", "C:\\Users\\test user\\glfw3.dll");
+
+        QCOMPARE(Commandline::process("nbted ${WORLD_PATH}", env), (QStringList{ "nbted", "/tmp/saves/New World" }));
+        QCOMPARE(Commandline::process("\"C:\\Program Files\\nbted.exe\" \"${WORLD_PATH}\"", env),
+                 (QStringList{ "C:\\Program Files\\nbted.exe", "/tmp/saves/New World" }));
+        QCOMPARE(Commandline::process("-Dlib=\"${LIB}\"", env), (QStringList{ "-Dlib=C:\\Users\\test user\\glfw3.dll" }));
+    }
+
+    void test_quoteForSplitCommand_data()
+    {
+        QTest::addColumn<QString>("input");
+
+        QTest::newRow("no spaces") << "nbted";
+        QTest::newRow("windows path with spaces") << "C:\\Program Files\\nbted.exe";
+        QTest::newRow("embedded quotes") << "say \"hi\" now";
+        QTest::newRow("world path") << "/tmp/saves/New World";
+    }
+    void test_quoteForSplitCommand()
+    {
+        QFETCH(QString, input);
+
+        const QString quoted = Commandline::quoteForSplitCommand(input);
+        QCOMPARE(QProcess::splitCommand(quoted), QStringList{ input });
+        if (!input.contains(' ')) {
+            QCOMPARE(quoted, input);
+        } else {
+            QVERIFY(quoted.startsWith('"'));
+            QVERIFY(quoted.endsWith('"'));
+        }
     }
 };
 
