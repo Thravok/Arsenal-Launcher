@@ -6,9 +6,9 @@
 #include "QObjectPtr.h"
 #include "net/NetJob.h"
 
+#include <QDateTime>
 #include <QNetworkAccessManager>
 #include <QObject>
-#include <QDateTime>
 
 namespace HackClients {
 
@@ -26,6 +26,9 @@ class FDPProvider : public QObject {
     /** Newest stable release, or empty if none. */
     FDPRelease latestStable() const;
 
+    /** Parse a GitHub releases payload. Public so unit tests can cover catalog edge cases without the network. */
+    bool parse(const QByteArray& data);
+
    signals:
     void refreshed();
     void failed(QString reason);
@@ -35,8 +38,6 @@ class FDPProvider : public QObject {
     void onDownloadFailed(QString reason);
 
    private:
-    bool parse(const QByteArray& data);
-
     QNetworkAccessManager* m_network;
     NetJob::Ptr m_job;
     QByteArray m_response;

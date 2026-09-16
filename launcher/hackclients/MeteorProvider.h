@@ -6,9 +6,9 @@
 #include "QObjectPtr.h"
 #include "net/NetJob.h"
 
+#include <QDateTime>
 #include <QNetworkAccessManager>
 #include <QObject>
-#include <QDateTime>
 
 namespace HackClients {
 
@@ -25,6 +25,9 @@ class MeteorProvider : public QObject {
     QList<MeteorBuild> builds() const { return m_builds; }
     MeteorBuild buildForMinecraft(const QString& mcVersion) const;
 
+    /** Parse a stats payload. Public so unit tests can cover catalog edge cases without the network. */
+    bool parse(const QByteArray& data);
+
    signals:
     void refreshed();
     void failed(QString reason);
@@ -34,8 +37,6 @@ class MeteorProvider : public QObject {
     void onDownloadFailed(QString reason);
 
    private:
-    bool parse(const QByteArray& data);
-
     QNetworkAccessManager* m_network;
     NetJob::Ptr m_job;
     QByteArray m_response;

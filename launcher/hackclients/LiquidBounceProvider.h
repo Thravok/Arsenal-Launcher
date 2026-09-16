@@ -6,9 +6,9 @@
 #include "QObjectPtr.h"
 #include "net/NetJob.h"
 
+#include <QDateTime>
 #include <QNetworkAccessManager>
 #include <QObject>
-#include <QDateTime>
 
 namespace HackClients {
 
@@ -24,6 +24,12 @@ class LiquidBounceProvider : public QObject {
     /** Latest release build, with filePid/checksum resolved when possible. */
     LiquidBounceBuild latestRelease() const { return m_latest; }
     QList<LiquidBounceBuild> releaseBuilds() const { return m_builds; }
+    QList<int> candidateBuildIds() const { return m_candidateBuildIds; }
+
+    /** Parse helpers. Public so unit tests can cover page/JSON edge cases without the network. */
+    bool parseDownloadPage(const QByteArray& html);
+    bool parseBuildJson(const QByteArray& data, LiquidBounceBuild& out);
+    bool parseQueuePage(const QByteArray& html, LiquidBounceBuild& out);
 
    signals:
     void refreshed();
@@ -36,9 +42,6 @@ class LiquidBounceProvider : public QObject {
     void onNetFailed(QString reason);
 
    private:
-    bool parseDownloadPage(const QByteArray& html);
-    bool parseBuildJson(const QByteArray& data, LiquidBounceBuild& out);
-    bool parseQueuePage(const QByteArray& html, LiquidBounceBuild& out);
     void fetchBuildMeta(int buildId);
     void fetchQueuePage(int buildId);
 
