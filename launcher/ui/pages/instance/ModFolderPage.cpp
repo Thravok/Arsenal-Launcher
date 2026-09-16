@@ -151,14 +151,17 @@ bool ModFolderPage::shouldDisplay() const
 void ModFolderPage::updateActions()
 {
     ExternalResourcesPage::updateActions();
+    const QString modsDir = m_model ? m_model->dir().absolutePath() : QString();
+    const bool hasMeteor = !modsDir.isEmpty() && HackClients::modsFolderHasMeteorClient(modsDir);
     if (m_installBaritoneAction) {
-        m_installBaritoneAction->setEnabled(m_instance && !m_instance->isRunning());
+        // Meteor ships its own Baritone fork; standalone Fabric Baritone replaces it.
+        m_installBaritoneAction->setVisible(!hasMeteor);
+        m_installBaritoneAction->setEnabled(!hasMeteor && m_instance && !m_instance->isRunning());
     }
     if (m_installMeteorAddonsAction && m_instance) {
         auto profile = m_instance->getPackProfile();
         const auto loaders = profile->getModLoaders();
         const bool fabric = loaders && loaders->testFlag(ModPlatform::ModLoaderType::Fabric);
-        const bool hasMeteor = HackClients::modsFolderHasMeteorClient(m_model->dir().absolutePath());
         m_installMeteorAddonsAction->setVisible(fabric && hasMeteor);
         m_installMeteorAddonsAction->setEnabled(!m_instance->isRunning());
     } else if (m_installMeteorAddonsAction) {
@@ -196,7 +199,16 @@ void ModFolderPage::installBaritone()
         return;
     }
 
-    auto* task = new HackClients::BaritoneModInstallTask(m_model->dir().absolutePath(), mcVersion, QString(), this);
+    const QString modsDir = m_model->dir().absolutePath();
+    if (HackClients::modsFolderHasMeteorClient(modsDir)) {
+        QMessageBox::information(
+            this, tr("Install Baritone"),
+            tr("This instance already includes Meteor Client's Baritone fork. "
+               "Standalone Fabric Baritone is not compatible and would replace that JAR."));
+        return;
+    }
+
+    auto* task = new HackClients::BaritoneModInstallTask(modsDir, mcVersion, QString(), this);
 
     ProgressDialog loadDialog(this);
     loadDialog.setSkipButton(true, tr("Abort"));

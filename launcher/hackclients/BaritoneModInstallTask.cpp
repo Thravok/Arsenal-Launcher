@@ -4,9 +4,10 @@
 #include "Application.h"
 #include "BaritoneMaven.h"
 #include "FileSystem.h"
+#include "HackClientInstanceDetect.h"
 
-#include <QDir>
 #include <QFile>
+#include <QFileInfo>
 
 namespace HackClients {
 
@@ -37,33 +38,49 @@ void BaritoneModInstallTask::executeTask()
         return;
     }
 
-    FS::ensureFolderPathExists(m_modsDir);
-
-    setStatus(tr("Removing older Baritone jars…"));
-    const QDir mods(m_modsDir);
-    for (const auto& entry : mods.entryList(QDir::Files)) {
-        if (entry.contains("baritone", Qt::CaseInsensitive))
-            QFile::remove(FS::PathCombine(m_modsDir, entry));
+    if (modsFolderHasMeteorClient(m_modsDir)) {
+        emitFailed(tr("This instance already uses Meteor Client's Baritone fork. "
+                      "Standalone Fabric Baritone is not compatible and would replace that JAR."));
+        return;
     }
 
+    FS::ensureFolderPathExists(m_modsDir);
+
     const QString destName = QString("baritone-fabric-%1.jar").arg(m_minecraftVersion);
+    const QString destPath = FS::PathCombine(m_modsDir, destName);
+    const QString tempPath = destPath + QStringLiteral(".part");
+    QFile::remove(tempPath);
+
     QString error;
     const bool ok = m_mavenVersion.isEmpty()
                         ? BaritoneMaven::downloadBaritoneForMinecraft(
-                              APPLICATION->network(), m_minecraftVersion, FS::PathCombine(m_modsDir, destName), &error,
+                              APPLICATION->network(), m_minecraftVersion, tempPath, &error,
                               [this](const QString& status) { setStatus(status); })
                         : BaritoneMaven::downloadBaritone(APPLICATION->network(), m_mavenVersion, m_minecraftVersion,
-                                                          FS::PathCombine(m_modsDir, destName), &error,
+                                                          tempPath, &error,
                                                           [this](const QString& status) { setStatus(status); });
 
     if (m_abort) {
+        QFile::remove(tempPath);
         emitAborted();
         return;
     }
     if (!ok) {
+        QFile::remove(tempPath);
         emitFailed(error.isEmpty() ? tr("Failed to download Baritone.") : error);
         return;
     }
+
+    // Only drop previous Baritone JARs after the new file is on disk.
+    setStatus(tr("Installing Baritone…"));
+    QFile::remove(destPath);
+    if (!QFile::rename(tempPath, destPath) && !QFile::copy(tempPath, destPath)) {
+        QFile::remove(tempPath);
+        emitFailed(tr("Failed to install Baritone into the mods folder."));
+        return;
+    }
+    QFile::remove(tempPath);
+    replaceOtherBaritoneJars(m_modsDir, QFileInfo(destPath).fileName());
     emitSucceeded();
 }
 
