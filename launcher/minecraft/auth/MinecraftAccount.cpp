@@ -239,6 +239,13 @@ bool MinecraftAccount::shouldRefresh() const
     if (isInUse()) {
         return false;
     }
+    // The Altening alt tokens last for the day; Yggdrasil access tokens do not.
+    // After a game session they are typically unusable, so the 24h/12h MSA window
+    // would relaunch with a dead token and fail server joins. Re-auth whenever we
+    // still have the daily alt token (see TheAlteningYggdrasilLoginStep).
+    if (data.type == AccountType::TheAltening) {
+        return !data.yggdrasilToken.extra.value(QStringLiteral("userName")).toString().isEmpty();
+    }
     switch (data.validity_) {
         case Validity::Certain: {
             break;
