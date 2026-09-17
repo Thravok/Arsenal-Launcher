@@ -109,6 +109,15 @@ bool blocksLaunch(const MinecraftAccountPtr& account)
 
     switch (account->accountState()) {
     case AccountState::Expired:
+        // LaunchController re-authenticates Expired Altening accounts with the daily
+        // alt token. Blocking here made that recovery path unreachable from the UI.
+        if (account->accountType() == AccountType::TheAltening) {
+            const auto* data = account->accountData();
+            if (data && !data->yggdrasilToken.extra.value(QStringLiteral("userName")).toString().isEmpty()) {
+                return false;
+            }
+        }
+        return true;
     case AccountState::Disabled:
     case AccountState::Gone:
         return true;
