@@ -233,6 +233,8 @@ set(MINECRAFT_SOURCES
     minecraft/auth/TheAlteningApi.cpp
     minecraft/auth/TheAlteningApi.h
     minecraft/auth/TheAlteningConfig.h
+    minecraft/auth/TheAlteningAuthParse.cpp
+    minecraft/auth/TheAlteningAuthParse.h
     minecraft/auth/steps/TheAlteningGenerateStep.cpp
     minecraft/auth/steps/TheAlteningGenerateStep.h
     minecraft/auth/steps/TheAlteningYggdrasilLoginStep.cpp
@@ -281,6 +283,7 @@ set(MINECRAFT_SOURCES
     minecraft/launch/TheAlteningAuthlibProxy.h
 
     hackclients/HackClientTypes.h
+    hackclients/GradleProperties.h
     hackclients/HackClientsMeta.h
     hackclients/HackClientsMeta.cpp
     hackclients/ImpactReleasesProvider.h

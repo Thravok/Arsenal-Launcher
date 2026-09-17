@@ -3,8 +3,8 @@
 
 #include "FileSystem.h"
 #include "Version.h"
-#include "net/Request.h"
 #include "net/NetJob.h"
+#include "net/Request.h"
 #include "tasks/Task.h"
 
 #include <QEventLoop>
@@ -24,13 +24,8 @@ namespace {
 const QHash<QString, QString>& officialFabricBuildVersions()
 {
     static const QHash<QString, QString> map = {
-        {"1.16.5", "1.6.5"},
-        {"1.17.1", "1.7.3"},
-        {"1.18.2", "1.8.5"},
-        {"1.19.2", "1.9.4"},
-        {"1.19.3", "1.9.1"},
-        {"1.19.4", "1.9.3"},
-        {"1.20.1", "1.10.1"},
+        { "1.16.5", "1.6.5" }, { "1.17.1", "1.7.3" }, { "1.18.2", "1.8.5" },  { "1.19.2", "1.9.4" },
+        { "1.19.3", "1.9.1" }, { "1.19.4", "1.9.3" }, { "1.20.1", "1.10.1" },
     };
     return map;
 }
@@ -129,9 +124,7 @@ QString formatSupportedMinecraftVersions(const QList<BaritoneRelease>& releases,
     for (const auto& rel : releases)
         versions.append(rel.minecraftVersion);
 
-    std::sort(versions.begin(), versions.end(), [](const QString& a, const QString& b) {
-        return Version(a) > Version(b);
-    });
+    std::sort(versions.begin(), versions.end(), [](const QString& a, const QString& b) { return Version(a) > Version(b); });
 
     if (versions.size() <= maxShown)
         return versions.join(", ");
@@ -204,24 +197,16 @@ bool downloadBaritone(QNetworkAccessManager* network,
         return false;
     }
 
-    const QString basePath =
-        QString("%1%2").arg(QLatin1String(INDEX_URL), mavenVersion);
+    const QString basePath = QString("%1%2").arg(QLatin1String(INDEX_URL), mavenVersion);
 
     if (setStatus)
         setStatus(QObject::tr("Resolving Baritone for Minecraft %1…").arg(minecraftVersion));
 
     QByteArray metadata;
-    QString remoteJarName;
-    if (downloadByteArray(network, QUrl(basePath + "/maven-metadata.xml"), metadata, nullptr)) {
-        static const QRegularExpression jarSnapshotRe(
-            R"(<extension>jar</extension>\s*<value>([^<]+)</value>)");
-        const auto match = jarSnapshotRe.match(QString::fromUtf8(metadata));
-        if (match.hasMatch())
-            remoteJarName = QString("baritone-fabric-%1.jar").arg(match.captured(1).trimmed());
+    if (!downloadByteArray(network, QUrl(basePath + "/maven-metadata.xml"), metadata, nullptr)) {
+        metadata.clear();
     }
-
-    if (remoteJarName.isEmpty())
-        remoteJarName = QString("baritone-fabric-%1.jar").arg(minecraftVersion);
+    QString remoteJarName = fabricJarNameFromMetadata(metadata, minecraftVersion);
 
     if (setStatus)
         setStatus(QObject::tr("Downloading %1…").arg(QFileInfo(destPath).fileName()));
@@ -284,8 +269,9 @@ bool downloadBaritoneForMinecraft(QNetworkAccessManager* network,
         return true;
 
     if (errorOut) {
-        *errorOut = QObject::tr("Could not download Baritone for Minecraft %1.\n\n%2\n\nSupported versions "
-                                 "include: %3")
+        *errorOut = QObject::tr(
+                        "Could not download Baritone for Minecraft %1.\n\n%2\n\nSupported versions "
+                        "include: %3")
                         .arg(minecraftVersion,
                              officialError.isEmpty() ? QObject::tr("No rfresh2 Maven build and no official GitHub "
                                                                    "release mapping for this version.")

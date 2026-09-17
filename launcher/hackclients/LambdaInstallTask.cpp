@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "LambdaInstallTask.h"
 
-#include "BaritoneMaven.h"
 #include "Application.h"
+#include "BaritoneMaven.h"
 #include "FileSystem.h"
+#include "GradleProperties.h"
 #include "minecraft/MinecraftInstance.h"
 #include "minecraft/PackProfile.h"
 #include "net/Request.h"
@@ -16,9 +17,7 @@
 
 namespace HackClients {
 
-LambdaInstallTask::LambdaInstallTask(LambdaRelease release)
-    : InstanceCreationTask(), m_release(std::move(release))
-{}
+LambdaInstallTask::LambdaInstallTask(LambdaRelease release) : InstanceCreationTask(), m_release(std::move(release)) {}
 
 bool LambdaInstallTask::abort()
 {
@@ -97,31 +96,19 @@ bool LambdaInstallTask::fetchGradleProperties()
         return false;
     }
 
-    const auto lines = QString::fromUtf8(data).split('\n');
-    auto take = [&](const QString& key) -> QString {
-        const QString prefix = key + '=';
-        for (QString line : lines) {
-            line = line.trimmed();
-            if (line.isEmpty() || line.startsWith('#'))
-                continue;
-            if (line.startsWith(prefix))
-                return line.mid(prefix.size()).trimmed();
-        }
-        return {};
-    };
+    const QString props = QString::fromUtf8(data);
+    m_release.fabricLoaderVersion = gradleProperty(props, QStringLiteral("fabricLoaderVersion"));
+    m_release.fabricApiVersion = gradleProperty(props, QStringLiteral("fabricApiVersion"));
+    m_release.kotlinFabricVersion = gradleProperty(props, QStringLiteral("kotlinFabricVersion"));
+    m_release.kotlinVersion = gradleProperty(props, QStringLiteral("kotlinVersion"));
+    m_release.baritoneVersion = gradleProperty(props, QStringLiteral("baritoneVersion"));
 
-    m_release.fabricLoaderVersion = take("fabricLoaderVersion");
-    m_release.fabricApiVersion = take("fabricApiVersion");
-    m_release.kotlinFabricVersion = take("kotlinFabricVersion");
-    m_release.kotlinVersion = take("kotlinVersion");
-    m_release.baritoneVersion = take("baritoneVersion");
-
-    QString mcFromProps = take("minecraftVersion");
+    QString mcFromProps = gradleProperty(props, QStringLiteral("minecraftVersion"));
     if (!mcFromProps.isEmpty())
         m_release.minecraftVersion = mcFromProps;
 
-    if (m_release.fabricLoaderVersion.isEmpty() || m_release.fabricApiVersion.isEmpty() ||
-        m_release.kotlinFabricVersion.isEmpty() || m_release.kotlinVersion.isEmpty()) {
+    if (m_release.fabricLoaderVersion.isEmpty() || m_release.fabricApiVersion.isEmpty() || m_release.kotlinFabricVersion.isEmpty() ||
+        m_release.kotlinVersion.isEmpty()) {
         setError(tr("Lambda gradle.properties is missing required Fabric/Kotlin versions."));
         return false;
     }
@@ -133,9 +120,7 @@ bool LambdaInstallTask::downloadMods(const QString& modsDir)
     FS::ensureFolderPathExists(modsDir);
 
     setStatus(tr("Downloading Lambda %1…").arg(m_release.tagName));
-    QString lambdaName = m_release.jarName.isEmpty()
-                             ? QString("lambda-%1.jar").arg(m_release.tagName)
-                             : m_release.jarName;
+    QString lambdaName = m_release.jarName.isEmpty() ? QString("lambda-%1.jar").arg(m_release.tagName) : m_release.jarName;
     if (!downloadFile(QUrl(m_release.jarUrl), FS::PathCombine(modsDir, lambdaName))) {
         setError(tr("Failed to download Lambda JAR from GitHub."));
         return false;
@@ -147,8 +132,7 @@ bool LambdaInstallTask::downloadMods(const QString& modsDir)
         QString enc = QString::fromUtf8(QUrl::toPercentEncoding(ver));
         QString filename = QString("fabric-api-%1.jar").arg(ver);
         setStatus(tr("Downloading %1…").arg(filename));
-        QUrl url(QString("https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/%1/fabric-api-%2.jar")
-                     .arg(enc, enc));
+        QUrl url(QString("https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/%1/fabric-api-%2.jar").arg(enc, enc));
         if (!downloadFile(url, FS::PathCombine(modsDir, filename))) {
             setError(tr("Failed to download Fabric API %1.").arg(ver));
             return false;
@@ -161,8 +145,7 @@ bool LambdaInstallTask::downloadMods(const QString& modsDir)
         QString enc = QString::fromUtf8(QUrl::toPercentEncoding(ver));
         QString filename = QString("fabric-language-kotlin-%1.jar").arg(ver);
         setStatus(tr("Downloading %1…").arg(filename));
-        QUrl url(QString("https://maven.fabricmc.net/net/fabricmc/fabric-language-kotlin/%1/fabric-language-kotlin-%2.jar")
-                     .arg(enc, enc));
+        QUrl url(QString("https://maven.fabricmc.net/net/fabricmc/fabric-language-kotlin/%1/fabric-language-kotlin-%2.jar").arg(enc, enc));
         if (!downloadFile(url, FS::PathCombine(modsDir, filename))) {
             setError(tr("Failed to download Fabric Language Kotlin %1.").arg(ver));
             return false;
@@ -177,8 +160,8 @@ bool LambdaInstallTask::downloadMods(const QString& modsDir)
 
     QString error;
     const QString destName = QString("baritone-fabric-%1.jar").arg(mc);
-    if (!BaritoneMaven::downloadBaritoneForMinecraft(APPLICATION->network(), mc, FS::PathCombine(modsDir, destName),
-                                                     &error, [this](const QString& status) { setStatus(status); })) {
+    if (!BaritoneMaven::downloadBaritoneForMinecraft(APPLICATION->network(), mc, FS::PathCombine(modsDir, destName), &error,
+                                                     [this](const QString& status) { setStatus(status); })) {
         setError(error.isEmpty() ? tr("Failed to download Baritone for Minecraft %1.").arg(mc) : error);
         return false;
     }

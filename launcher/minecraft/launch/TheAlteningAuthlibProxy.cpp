@@ -1,14 +1,14 @@
 #include "TheAlteningAuthlibProxy.h"
 #include "minecraft/auth/TheAlteningConfig.h"
 
+#include <QDebug>
+#include <QHostAddress>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QJsonArray>
-#include <QHostAddress>
-#include <QDebug>
 #include <QVariant>
 
-TheAlteningAuthlibProxy::TheAlteningAuthlibProxy(QObject *parent) : QObject(parent)
+TheAlteningAuthlibProxy::TheAlteningAuthlibProxy(QObject* parent) : QObject(parent)
 {
     connect(&m_server, &QTcpServer::newConnection, this, &TheAlteningAuthlibProxy::onNewConnection);
 }
@@ -51,12 +51,8 @@ QByteArray TheAlteningAuthlibProxy::metadataJson()
 
     QJsonObject root;
     root.insert(QStringLiteral("meta"), meta);
-    root.insert(QStringLiteral("skinDomains"), QJsonArray{
-        QStringLiteral("cdn.thealtening.com"),
-        QStringLiteral(".thealtening.com"),
-        QStringLiteral("textures.minecraft.net"),
-        QStringLiteral(".minecraft.net")
-    });
+    root.insert(QStringLiteral("skinDomains"), QJsonArray{ QStringLiteral("cdn.thealtening.com"), QStringLiteral(".thealtening.com"),
+                                                           QStringLiteral("textures.minecraft.net"), QStringLiteral(".minecraft.net") });
 
     return QJsonDocument(root).toJson(QJsonDocument::Compact);
 }
@@ -66,10 +62,43 @@ QByteArray TheAlteningAuthlibProxy::prefetchedMetadataBase64()
     return metadataJson().toBase64();
 }
 
+TheAlteningAuthlibProxy::ProxyRoute TheAlteningAuthlibProxy::resolveProxyRoute(const QByteArray& path)
+{
+    const int qmark = path.indexOf('?');
+    const QByteArray pathOnly = qmark >= 0 ? path.left(qmark) : path;
+
+    ProxyRoute route;
+    if (pathOnly == "/" || pathOnly.isEmpty() || pathOnly == "/index.json") {
+        route.kind = ProxyRouteKind::Metadata;
+        return route;
+    }
+
+    if (pathOnly.startsWith("/authserver")) {
+        route.kind = ProxyRouteKind::AuthServer;
+        QByteArray upstreamPathAndQuery = path.mid(QByteArray("/authserver").size());
+        if (upstreamPathAndQuery.isEmpty() || upstreamPathAndQuery.at(0) != '/')
+            upstreamPathAndQuery.prepend('/');
+        route.upstreamPathAndQuery = upstreamPathAndQuery;
+        return route;
+    }
+
+    if (pathOnly.startsWith("/sessionserver")) {
+        route.kind = ProxyRouteKind::SessionServer;
+        QByteArray upstreamPathAndQuery = path.mid(QByteArray("/sessionserver").size());
+        if (upstreamPathAndQuery.isEmpty() || upstreamPathAndQuery.at(0) != '/')
+            upstreamPathAndQuery.prepend('/');
+        route.upstreamPathAndQuery = upstreamPathAndQuery;
+        return route;
+    }
+
+    route.kind = ProxyRouteKind::NotFound;
+    return route;
+}
+
 void TheAlteningAuthlibProxy::onNewConnection()
 {
     while (m_server.hasPendingConnections()) {
-        QTcpSocket *client = m_server.nextPendingConnection();
+        QTcpSocket* client = m_server.nextPendingConnection();
         client->setParent(this);
         m_clients.insert(client, ClientState{});
         connect(client, &QTcpSocket::readyRead, this, &TheAlteningAuthlibProxy::onClientReadyRead);
@@ -79,7 +108,7 @@ void TheAlteningAuthlibProxy::onNewConnection()
 
 void TheAlteningAuthlibProxy::onClientDisconnected()
 {
-    auto *client = qobject_cast<QTcpSocket *>(sender());
+    auto* client = qobject_cast<QTcpSocket*>(sender());
     if (!client) {
         return;
     }
@@ -97,12 +126,12 @@ void TheAlteningAuthlibProxy::onClientDisconnected()
 
 void TheAlteningAuthlibProxy::onClientReadyRead()
 {
-    auto *client = qobject_cast<QTcpSocket *>(sender());
+    auto* client = qobject_cast<QTcpSocket*>(sender());
     if (!client || !m_clients.contains(client)) {
         return;
     }
 
-    auto &state = m_clients[client];
+    auto& state = m_clients[client];
     state.buffer.append(client->readAll());
 
     if (!state.headersComplete) {
@@ -153,42 +182,32 @@ void TheAlteningAuthlibProxy::onClientReadyRead()
     handleClientRequest(client);
 }
 
-void TheAlteningAuthlibProxy::handleClientRequest(QTcpSocket *client)
+void TheAlteningAuthlibProxy::handleClientRequest(QTcpSocket* client)
 {
-    auto &state = m_clients[client];
-    QByteArray path = state.path;
-    const int qmark = path.indexOf('?');
-    QByteArray pathOnly = qmark >= 0 ? path.left(qmark) : path;
+    auto& state = m_clients[client];
+    const ProxyRoute route = resolveProxyRoute(state.path);
 
-    if (pathOnly == "/" || pathOnly.isEmpty() || pathOnly == "/index.json") {
+    if (route.kind == ProxyRouteKind::Metadata) {
         respondMetadata(client);
         return;
     }
 
-    QUrl target;
-    QByteArray upstreamPathAndQuery = path;
-    if (pathOnly.startsWith("/authserver")) {
-        target = QUrl(TheAltening::AuthServerUrl);
-        upstreamPathAndQuery = path.mid(QByteArray("/authserver").size());
-        if (upstreamPathAndQuery.isEmpty() || upstreamPathAndQuery.at(0) != '/')
-            upstreamPathAndQuery.prepend('/');
-    } else if (pathOnly.startsWith("/sessionserver")) {
-        target = QUrl(TheAltening::SessionServerUrl);
-        upstreamPathAndQuery = path.mid(QByteArray("/sessionserver").size());
-        if (upstreamPathAndQuery.isEmpty() || upstreamPathAndQuery.at(0) != '/')
-            upstreamPathAndQuery.prepend('/');
-    } else {
-        const QByteArray response =
-            "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
-        client->write(response);
-        client->disconnectFromHost();
+    if (route.kind == ProxyRouteKind::AuthServer) {
+        proxyRequest(client, QUrl(TheAltening::AuthServerUrl), state.method, route.upstreamPathAndQuery, state.body);
         return;
     }
 
-    proxyRequest(client, target, state.method, upstreamPathAndQuery, state.body);
+    if (route.kind == ProxyRouteKind::SessionServer) {
+        proxyRequest(client, QUrl(TheAltening::SessionServerUrl), state.method, route.upstreamPathAndQuery, state.body);
+        return;
+    }
+
+    const QByteArray response = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+    client->write(response);
+    client->disconnectFromHost();
 }
 
-void TheAlteningAuthlibProxy::respondMetadata(QTcpSocket *client)
+void TheAlteningAuthlibProxy::respondMetadata(QTcpSocket* client)
 {
     const QByteArray body = metadataJson();
     QByteArray response;
@@ -201,14 +220,13 @@ void TheAlteningAuthlibProxy::respondMetadata(QTcpSocket *client)
     client->disconnectFromHost();
 }
 
-void TheAlteningAuthlibProxy::proxyRequest(
-    QTcpSocket *client,
-    const QUrl &target,
-    const QByteArray &method,
-    const QByteArray &pathAndQuery,
-    const QByteArray &body)
+void TheAlteningAuthlibProxy::proxyRequest(QTcpSocket* client,
+                                           const QUrl& target,
+                                           const QByteArray& method,
+                                           const QByteArray& pathAndQuery,
+                                           const QByteArray& body)
 {
-    auto &state = m_clients[client];
+    auto& state = m_clients[client];
     if (state.upstream) {
         state.upstream->disconnect(this);
         state.upstream->abort();
@@ -216,9 +234,9 @@ void TheAlteningAuthlibProxy::proxyRequest(
         state.upstream = nullptr;
     }
 
-    auto *upstream = new QTcpSocket(this);
+    auto* upstream = new QTcpSocket(this);
     state.upstream = upstream;
-    upstream->setProperty("client", QVariant::fromValue(static_cast<void *>(client)));
+    upstream->setProperty("client", QVariant::fromValue(static_cast<void*>(client)));
 
     connect(upstream, &QTcpSocket::connected, this, [upstream, client, method, pathAndQuery, body, target, this]() {
         if (!m_clients.contains(client)) {
@@ -243,8 +261,7 @@ void TheAlteningAuthlibProxy::proxyRequest(
 
     auto failUpstream = [this, upstream, client]() {
         if (m_clients.contains(client)) {
-            const QByteArray response =
-                "HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+            const QByteArray response = "HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
             client->write(response);
             client->disconnectFromHost();
             m_clients[client].upstream = nullptr;
@@ -253,14 +270,10 @@ void TheAlteningAuthlibProxy::proxyRequest(
     };
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
-    connect(upstream, &QAbstractSocket::errorOccurred, this, [failUpstream](QAbstractSocket::SocketError) {
-        failUpstream();
-    });
+    connect(upstream, &QAbstractSocket::errorOccurred, this, [failUpstream](QAbstractSocket::SocketError) { failUpstream(); });
 #else
-    connect(upstream, QOverload<QAbstractSocket::SocketError>::of(&QAbstractSocket::error),
-            this, [failUpstream](QAbstractSocket::SocketError) {
-        failUpstream();
-    });
+    connect(upstream, QOverload<QAbstractSocket::SocketError>::of(&QAbstractSocket::error), this,
+            [failUpstream](QAbstractSocket::SocketError) { failUpstream(); });
 #endif
 
     connect(upstream, &QTcpSocket::disconnected, this, [this, upstream, client]() {
@@ -282,12 +295,12 @@ void TheAlteningAuthlibProxy::proxyRequest(
 
 void TheAlteningAuthlibProxy::onUpstreamFinished()
 {
-    auto *upstream = qobject_cast<QTcpSocket *>(sender());
+    auto* upstream = qobject_cast<QTcpSocket*>(sender());
     if (!upstream) {
         return;
     }
 
-    QTcpSocket *client = static_cast<QTcpSocket *>(upstream->property("client").value<void *>());
+    QTcpSocket* client = static_cast<QTcpSocket*>(upstream->property("client").value<void*>());
     if (!client || !m_clients.contains(client)) {
         return;
     }
