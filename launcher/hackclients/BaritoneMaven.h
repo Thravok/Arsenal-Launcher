@@ -4,8 +4,9 @@
 #include "QObjectPtr.h"
 
 #include <QList>
-#include <QString>
 #include <QNetworkAccessManager>
+#include <QRegularExpression>
+#include <QString>
 
 #include <functional>
 
@@ -19,13 +20,26 @@ struct BaritoneRelease {
 
 namespace BaritoneMaven {
 
-static const char* const INDEX_URL =
-    "https://maven.2b2t.vc/releases/com/github/rfresh2/baritone-fabric/";
+static const char* const INDEX_URL = "https://maven.2b2t.vc/releases/com/github/rfresh2/baritone-fabric/";
 
 QList<BaritoneRelease> parseVersionIndex(const QByteArray& html);
 
 /** Prefer `{minecraftVersion}-SNAPSHOT`, then `{minecraftVersion}`. */
 QString mavenVersionForMinecraft(const QList<BaritoneRelease>& releases, const QString& minecraftVersion);
+
+/** `baritone-fabric-<snapshotValue>.jar` from maven-metadata.xml, else `baritone-fabric-<minecraftVersion>.jar`. */
+inline QString fabricJarNameFromMetadata(const QByteArray& xml, const QString& minecraftVersion)
+{
+    static const QRegularExpression jarSnapshotRe(QStringLiteral(R"(<extension>jar</extension>\s*<value>([^<]+)</value>)"));
+    const auto match = jarSnapshotRe.match(QString::fromUtf8(xml));
+    if (match.hasMatch()) {
+        const QString snapshotValue = match.captured(1).trimmed();
+        if (!snapshotValue.isEmpty()) {
+            return QStringLiteral("baritone-fabric-%1.jar").arg(snapshotValue);
+        }
+    }
+    return QStringLiteral("baritone-fabric-%1.jar").arg(minecraftVersion);
+}
 
 /** Human-readable list of Minecraft versions that have Baritone builds on the Maven index. */
 QString formatSupportedMinecraftVersions(const QList<BaritoneRelease>& releases, int maxShown = 12);

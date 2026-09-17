@@ -1,6 +1,5 @@
 #include "TheAlteningYggdrasilLoginStep.h"
 
-#include <QDateTime>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkReply>
@@ -8,6 +7,7 @@
 #include <QUuid>
 
 #include "Application.h"
+#include "minecraft/auth/TheAlteningAuthParse.h"
 #include "minecraft/auth/TheAlteningConfig.h"
 #include "net/NetJob.h"
 #include "net/NetUtils.h"
@@ -28,8 +28,7 @@ void TheAlteningYggdrasilLoginStep::perform()
     // which fails after the token was used in-game and then leaves the account "Expired".
     const QString altToken = m_data->yggdrasilToken.extra.value(QStringLiteral("userName")).toString();
     if (altToken.isEmpty()) {
-        emit finished(AccountTaskState::STATE_FAILED_HARD,
-                      tr("This The Altening account has no alt token. Generate a new one."));
+        emit finished(AccountTaskState::STATE_FAILED_HARD, tr("This The Altening account has no alt token. Generate a new one."));
         return;
     }
 
@@ -72,11 +71,8 @@ void TheAlteningYggdrasilLoginStep::perform()
 void TheAlteningYggdrasilLoginStep::onRequestDone(QByteArray* response)
 {
     if (m_request->error() != QNetworkReply::NoError) {
-        qWarning() << "The Altening authentication failed:"
-                    << "HTTP" << m_request->replyStatusCode()
-                    << "error" << m_request->error()
-                    << m_request->errorString()
-                    << "body" << QString::fromUtf8(*response);
+        qWarning() << "The Altening authentication failed:" << "HTTP" << m_request->replyStatusCode() << "error" << m_request->error()
+                   << m_request->errorString() << "body" << QString::fromUtf8(*response);
 
         QString serverMessage;
         QJsonParseError err;
@@ -91,8 +87,7 @@ void TheAlteningYggdrasilLoginStep::onRequestDone(QByteArray* response)
         const auto networkError = m_request->error();
         if (Net::isApplicationError(networkError) && !Net::isServerError(networkError)) {
             const QString detail = serverMessage.isEmpty() ? m_request->errorString() : serverMessage;
-            emit finished(AccountTaskState::STATE_FAILED_HARD,
-                          tr("The Altening authentication failed: %1").arg(detail));
+            emit finished(AccountTaskState::STATE_FAILED_HARD, tr("The Altening authentication failed: %1").arg(detail));
             return;
         }
 
@@ -102,37 +97,11 @@ void TheAlteningYggdrasilLoginStep::onRequestDone(QByteArray* response)
         return;
     }
 
-    QJsonParseError err;
-    auto doc = QJsonDocument::fromJson(*response, &err);
-    if (err.error != QJsonParseError::NoError || !doc.isObject()) {
-        emit finished(AccountTaskState::STATE_FAILED_SOFT, tr("The Altening authentication returned invalid JSON."));
+    QString error;
+    if (!TheAlteningAuth::applyAuthenticateJson(m_data, *response, &error)) {
+        emit finished(AccountTaskState::STATE_FAILED_SOFT, error);
         return;
     }
-    auto obj = doc.object();
-    const QString clientToken = obj.value(QStringLiteral("clientToken")).toString();
-    const QString accessToken = obj.value(QStringLiteral("accessToken")).toString();
-    if (clientToken.isEmpty() || accessToken.isEmpty()) {
-        emit finished(AccountTaskState::STATE_FAILED_SOFT, tr("The Altening authentication response was incomplete."));
-        return;
-    }
-
-    m_data->yggdrasilToken.extra[QStringLiteral("clientToken")] = clientToken;
-    m_data->yggdrasilToken.token = accessToken;
-    m_data->yggdrasilToken.validity = Validity::Certain;
-    m_data->yggdrasilToken.issueInstant = QDateTime::currentDateTimeUtc();
-    m_data->yggdrasilToken.notAfter = QDateTime();
-
-    const auto profile = obj.value(QStringLiteral("selectedProfile")).toObject();
-    m_data->minecraftProfile.id = profile.value(QStringLiteral("id")).toString();
-    m_data->minecraftProfile.name = profile.value(QStringLiteral("name")).toString();
-    if (m_data->minecraftProfile.id.isEmpty()) {
-        emit finished(AccountTaskState::STATE_FAILED_SOFT, tr("The Altening authentication did not return a profile."));
-        return;
-    }
-    m_data->minecraftProfile.validity = Validity::Certain;
-    m_data->minecraftEntitlement.canPlayMinecraft = true;
-    m_data->minecraftEntitlement.ownsMinecraft = true;
-    m_data->minecraftEntitlement.validity = Validity::Assumed;
 
     emit finished(AccountTaskState::STATE_WORKING, tr("Logged in with The Altening."));
 }

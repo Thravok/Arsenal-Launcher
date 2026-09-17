@@ -1,7 +1,10 @@
 #include "TheAlteningGenerateStep.h"
+#include "minecraft/auth/TheAlteningAuthParse.h"
 #include "minecraft/auth/TheAlteningConfig.h"
 
-TheAlteningGenerateStep::TheAlteningGenerateStep(AccountData *data) : AuthStep(data)
+#include <QJsonObject>
+
+TheAlteningGenerateStep::TheAlteningGenerateStep(AccountData* data) : AuthStep(data)
 {
     m_api.reset(new TheAlteningApi(this));
     connect(m_api.get(), &TheAlteningApi::failed, this, &TheAlteningGenerateStep::onApiFailed);
@@ -33,13 +36,11 @@ void TheAlteningGenerateStep::perform()
 void TheAlteningGenerateStep::onLicenseSucceeded(QJsonObject json)
 {
     m_awaitingLicense = false;
-    if (!json.value(QStringLiteral("hasLicense")).toBool(false)) {
-        emit finished(AccountTaskState::STATE_FAILED_HARD, tr("The Altening API key has no active license."));
+    QString error;
+    if (!TheAlteningAuth::applyLicenseJson(m_data, json, &error)) {
+        emit finished(AccountTaskState::STATE_FAILED_HARD, error);
         return;
     }
-
-    m_data->theAlteningLicenseType = json.value(QStringLiteral("licenseType")).toString();
-    m_data->theAlteningLicenseExpires = json.value(QStringLiteral("expires")).toString();
     startGenerate();
 }
 
@@ -52,28 +53,14 @@ void TheAlteningGenerateStep::startGenerate()
 
 void TheAlteningGenerateStep::onGenerateSucceeded(QJsonObject json)
 {
-    const QString token = json.value(QStringLiteral("token")).toString();
-    const QString password = json.value(QStringLiteral("password")).toString(QStringLiteral("anything"));
-    if (token.isEmpty()) {
-        emit finished(AccountTaskState::STATE_FAILED_HARD, tr("The Altening API did not return an alt token."));
+    const auto result = TheAlteningAuth::applyGenerateJson(m_data, json);
+    if (!result.ok) {
+        emit finished(AccountTaskState::STATE_FAILED_HARD, result.error);
         return;
     }
 
-    m_data->yggdrasilToken.extra[QStringLiteral("userName")] = token;
-    m_data->theAlteningPendingPassword = password;
-
-    const QString altUsername = json.value(QStringLiteral("username")).toString();
-    if (!altUsername.isEmpty()) {
-        m_data->theAlteningAltUsername = altUsername;
-    }
-
-    const QString skin = json.value(QStringLiteral("skin")).toString();
-    if (!skin.isEmpty()) {
-        m_data->yggdrasilToken.extra[QStringLiteral("alteningSkin")] = skin;
-    }
-
     QString message = tr("Generated The Altening alt token.");
-    if (json.value(QStringLiteral("limit")).toBool(false)) {
+    if (result.dailyLimit) {
         message = tr("Daily The Altening generate limit reached; reusing an alt from today.");
     }
 

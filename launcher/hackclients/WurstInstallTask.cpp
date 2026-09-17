@@ -4,6 +4,7 @@
 #include "Application.h"
 #include "BaritoneMaven.h"
 #include "FileSystem.h"
+#include "GradleProperties.h"
 #include "minecraft/MinecraftInstance.h"
 #include "minecraft/PackProfile.h"
 #include "net/Request.h"
@@ -51,8 +52,7 @@ bool WurstInstallTask::fetchGradleProperties()
     setStatus(tr("Fetching Wurst dependency versions…"));
     QByteArray data;
     QString encodedTag = QString::fromUtf8(QUrl::toPercentEncoding(m_release.tagName));
-    QUrl url(QString("https://raw.githubusercontent.com/Wurst-Imperium/Wurst7/%1/gradle.properties")
-                 .arg(encodedTag));
+    QUrl url(QString("https://raw.githubusercontent.com/Wurst-Imperium/Wurst7/%1/gradle.properties").arg(encodedTag));
 
     m_job.reset();
     m_job.reset(new NetJob("Wurst gradle.properties", APPLICATION->network()));
@@ -75,23 +75,11 @@ bool WurstInstallTask::fetchGradleProperties()
         return false;
     }
 
-    const auto lines = QString::fromUtf8(data).split('\n');
-    auto take = [&](const QString& key) -> QString {
-        const QString prefix = key + '=';
-        for (QString line : lines) {
-            line = line.trimmed();
-            if (line.isEmpty() || line.startsWith('#'))
-                continue;
-            if (line.startsWith(prefix))
-                return line.mid(prefix.size()).trimmed();
-        }
-        return {};
-    };
+    const QString props = QString::fromUtf8(data);
+    m_release.fabricLoaderVersion = gradleProperty(props, QStringLiteral("loader_version"));
+    m_release.fabricApiVersion = gradleProperty(props, QStringLiteral("fabric_api_version"));
 
-    m_release.fabricLoaderVersion = take("loader_version");
-    m_release.fabricApiVersion = take("fabric_api_version");
-
-    QString mcFromProps = take("minecraft_version");
+    QString mcFromProps = gradleProperty(props, QStringLiteral("minecraft_version"));
     if (!mcFromProps.isEmpty())
         m_release.minecraftVersion = mcFromProps;
 
@@ -107,9 +95,7 @@ bool WurstInstallTask::downloadMods(const QString& modsDir)
     FS::ensureFolderPathExists(modsDir);
 
     setStatus(tr("Downloading Wurst %1…").arg(m_release.tagName));
-    QString wurstName = m_release.jarName.isEmpty()
-                            ? QString("Wurst-Client-%1.jar").arg(m_release.tagName)
-                            : m_release.jarName;
+    QString wurstName = m_release.jarName.isEmpty() ? QString("Wurst-Client-%1.jar").arg(m_release.tagName) : m_release.jarName;
     if (!downloadFile(QUrl(m_release.jarUrl), FS::PathCombine(modsDir, wurstName))) {
         setError(tr("Failed to download Wurst JAR from GitHub."));
         return false;
@@ -120,8 +106,7 @@ bool WurstInstallTask::downloadMods(const QString& modsDir)
         QString enc = QString::fromUtf8(QUrl::toPercentEncoding(ver));
         QString filename = QString("fabric-api-%1.jar").arg(ver);
         setStatus(tr("Downloading %1…").arg(filename));
-        QUrl url(QString("https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/%1/fabric-api-%2.jar")
-                     .arg(enc, enc));
+        QUrl url(QString("https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/%1/fabric-api-%2.jar").arg(enc, enc));
         if (!downloadFile(url, FS::PathCombine(modsDir, filename))) {
             setError(tr("Failed to download Fabric API %1.").arg(ver));
             return false;
@@ -133,9 +118,8 @@ bool WurstInstallTask::downloadMods(const QString& modsDir)
         const QString destName = QString("baritone-fabric-%1.jar").arg(mc);
         QString baritoneError;
         setStatus(tr("Downloading Baritone for Minecraft %1…").arg(mc));
-        if (!BaritoneMaven::downloadBaritoneForMinecraft(APPLICATION->network(), mc,
-                                                        FS::PathCombine(modsDir, destName), &baritoneError,
-                                                        [this](const QString& status) { setStatus(status); })) {
+        if (!BaritoneMaven::downloadBaritoneForMinecraft(APPLICATION->network(), mc, FS::PathCombine(modsDir, destName), &baritoneError,
+                                                         [this](const QString& status) { setStatus(status); })) {
             setError(baritoneError.isEmpty() ? tr("Failed to download Baritone for Wurst.") : baritoneError);
             return false;
         }
