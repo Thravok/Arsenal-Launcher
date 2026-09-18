@@ -114,17 +114,7 @@ bool IconList::addPath(const QString& path)
 
 QStringList IconList::getIconFilePaths() const
 {
-    QStringList iconFiles{};
-    for (QFileInfo& topFile : m_dir.entryInfoList(QDir::AllDirs | QDir::Files | QDir::NoDotAndDotDot, QDir::Name)) {
-        if (topFile.isDir()) {
-            for (QFileInfo& subFile : QDir(topFile.filePath()).entryInfoList(QDir::Files, QDir::Name)) {
-                iconFiles.push_back(subFile.absoluteFilePath());
-            }
-        } else {
-            iconFiles.push_back(topFile.absoluteFilePath());
-        }
-    }
-    return iconFiles;
+    return IconUtils::listIconFiles(m_dir);
 }
 
 QString formatName(const QDir& iconsDir, const QFileInfo& iconFile)

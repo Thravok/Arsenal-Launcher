@@ -35,7 +35,9 @@
 
 #pragma once
 
+#include <QDir>
 #include <QString>
+#include <QStringList>
 
 namespace IconUtils {
 
@@ -46,4 +48,7 @@ QString findBestIconIn(const QString& folder, const QString& iconKey);
 QString getIconFilter();
 
 bool isIconSuffix(QString suffix);
+
+/** Files in the icons root plus files in immediate subfolders (not nested deeper). */
+QStringList listIconFiles(const QDir& iconsDir);
 }  // namespace IconUtils

@@ -35,8 +35,9 @@
 
 #include "IconUtils.h"
 
+#include <QDir>
 #include <QDirIterator>
-#include "FileSystem.h"
+#include <QFileInfo>
 
 namespace {
 static const QStringList validIconExtensions = { { "svg", "png", "ico", "gif", "jpg", "jpeg", "webp" } };
@@ -66,6 +67,21 @@ QString getIconFilter()
 bool isIconSuffix(QString suffix)
 {
     return validIconExtensions.contains(suffix);
+}
+
+QStringList listIconFiles(const QDir& iconsDir)
+{
+    QStringList iconFiles;
+    for (const QFileInfo& topFile : iconsDir.entryInfoList(QDir::AllDirs | QDir::Files | QDir::NoDotAndDotDot, QDir::Name)) {
+        if (topFile.isDir()) {
+            for (const QFileInfo& subFile : QDir(topFile.filePath()).entryInfoList(QDir::Files, QDir::Name)) {
+                iconFiles.push_back(subFile.absoluteFilePath());
+            }
+        } else {
+            iconFiles.push_back(topFile.absoluteFilePath());
+        }
+    }
+    return iconFiles;
 }
 
 }  // namespace IconUtils
