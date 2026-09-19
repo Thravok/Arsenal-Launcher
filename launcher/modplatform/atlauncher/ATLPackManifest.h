@@ -185,4 +185,7 @@ struct PackVersion {
 
 void loadVersion(PackVersion& v, QJsonObject& obj);
 
+/** True when joining entryName onto basePath would escape basePath (after invalid-char cleanup). */
+bool isPathTraversal(const QString& basePath, const QString& entryName);
+
 }  // namespace ATLauncher
