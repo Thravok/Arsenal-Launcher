@@ -172,8 +172,9 @@ struct IndexedVersionType : EnumWrapper<IndexedVersionType, IndexedVersionTypeVa
 
     static constexpr auto mapping()
     {
-        return std::array{ std::pair{ Unknown, "Unknown" }, std::pair{ Release, "Release" }, std::pair{ Beta, "Beta" },
-                           std::pair{ Alpha, "Alpha" } };
+        // Modrinth, Packwiz, and historical Prism metadata use lowercase names.
+        return std::array{ std::pair{ Unknown, "unknown" }, std::pair{ Release, "release" }, std::pair{ Beta, "beta" },
+                           std::pair{ Alpha, "alpha" } };
     };
 
     using enum IndexedVersionTypeValue;

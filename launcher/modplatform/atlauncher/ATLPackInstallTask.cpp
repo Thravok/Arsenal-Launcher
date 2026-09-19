@@ -61,15 +61,6 @@
 #include "ui/dialogs/BlockedModsDialog.h"
 
 namespace {
-bool isPathTraversal(const QString& basePath, const QString& entryName)
-{
-    auto safeName = FS::RemoveInvalidPathChars(entryName);
-    auto fullPath = FS::PathCombine(basePath, safeName);
-    auto baseUrl = QUrl::fromLocalFile(basePath);
-    auto fullUrl = QUrl::fromLocalFile(fullPath);
-    return !(baseUrl == fullUrl || baseUrl.isParentOf(fullUrl));
-}
-
 Meta::Version::Ptr getComponentVersion(const QString& uid, const QString& version)
 {
     return APPLICATION->metadataIndex()->getLoadedVersion(uid, version);
@@ -966,7 +957,7 @@ bool PackInstallTask::extractMods(const QMap<QString, VersionMod>& toExtract,
             folderToExtract = mod.extractFolder;
             static const QRegularExpression s_regex("^/");
             folderToExtract.remove(s_regex);
-            if (isPathTraversal(extractToPath, folderToExtract)) {
+            if (ATLauncher::isPathTraversal(extractToPath, folderToExtract)) {
                 qWarning() << "Blocked path traversal in" << mod.extractFolder;
                 return false;
             }
@@ -987,7 +978,7 @@ bool PackInstallTask::extractMods(const QMap<QString, VersionMod>& toExtract,
         QDir extractDir(m_stagingPath);
         auto extractToPath = FS::PathCombine(extractDir.absolutePath(), "minecraft", extractToDir, mod.decompFile);
 
-        if (isPathTraversal(extractToPath, mod.decompFile)) {
+        if (ATLauncher::isPathTraversal(extractToPath, mod.decompFile)) {
             qWarning() << "Blocked path traversal in decompFile" << mod.decompFile;
             return false;
         }

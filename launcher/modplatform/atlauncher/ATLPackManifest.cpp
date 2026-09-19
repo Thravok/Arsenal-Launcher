@@ -36,7 +36,10 @@
 
 #include "ATLPackManifest.h"
 
+#include "FileSystem.h"
 #include "Json.h"
+
+#include <QUrl>
 
 static ATLauncher::DownloadType parseDownloadType(QString rawType)
 {
@@ -266,6 +269,15 @@ static void loadVersionDeletes(ATLauncher::VersionDeletes& d, QJsonObject& obj)
             d.folders.append(versionDelete);
         }
     }
+}
+
+bool ATLauncher::isPathTraversal(const QString& basePath, const QString& entryName)
+{
+    const auto safeName = FS::RemoveInvalidPathChars(entryName);
+    const auto fullPath = FS::PathCombine(basePath, safeName);
+    const auto baseUrl = QUrl::fromLocalFile(basePath);
+    const auto fullUrl = QUrl::fromLocalFile(fullPath);
+    return !(baseUrl == fullUrl || baseUrl.isParentOf(fullUrl));
 }
 
 void ATLauncher::loadVersion(PackVersion& v, QJsonObject& obj)
