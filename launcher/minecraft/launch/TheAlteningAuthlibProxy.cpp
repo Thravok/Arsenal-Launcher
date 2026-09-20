@@ -6,6 +6,7 @@
 #include <QJsonArray>
 #include <QHostAddress>
 #include <QDebug>
+#include <QStringList>
 #include <QVariant>
 
 TheAlteningAuthlibProxy::TheAlteningAuthlibProxy(QObject *parent) : QObject(parent)
@@ -64,6 +65,24 @@ QByteArray TheAlteningAuthlibProxy::metadataJson()
 QByteArray TheAlteningAuthlibProxy::prefetchedMetadataBase64()
 {
     return metadataJson().toBase64();
+}
+
+QStringList TheAlteningAuthlibProxy::extraJvmArgs()
+{
+    // The Altening cannot issue Mojang-signed profile keys. authlib-injector
+    // documents profileKey=enabled as forcing POST /player/certificates; when
+    // that fails it attaches a dummy publicKeySignature ("AA==") that 1.19+
+    // servers reject with "Invalid signature for profile public key" even if
+    // enforce-secure-profile=false. profileKey=disabled keeps the client from
+    // sending that blob. Default would also disable because our metadata omits
+    // feature.enable_profile_key; set it explicitly so a later metadata change
+    // cannot turn the dummy key back on.
+    return {
+        QStringLiteral("-Dauthlibinjector.yggdrasil.prefetched=%1")
+            .arg(QString::fromLatin1(prefetchedMetadataBase64())),
+        QStringLiteral("-Dauthlibinjector.profileKey=disabled"),
+        QStringLiteral("-Dauthlibinjector.usernameCheck=disabled"),
+    };
 }
 
 void TheAlteningAuthlibProxy::onNewConnection()

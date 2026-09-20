@@ -5,6 +5,7 @@
 #include <QTcpSocket>
 #include <QHash>
 #include <QByteArray>
+#include <QStringList>
 #include <QUrl>
 
 #include "QObjectPtr.h"
@@ -25,6 +26,8 @@ public:
     bool start();
     QString baseUrl() const;
     static QByteArray prefetchedMetadataBase64();
+    /** authlib-injector JVM flags for an Altening launch (profile keys stay off). */
+    static QStringList extraJvmArgs();
 
 private slots:
     void onNewConnection();
