@@ -4,10 +4,10 @@
 #include "Application.h"
 #include "settings/SettingsObject.h"
 
-#include <QNetworkRequest>
-#include <QUrlQuery>
 #include <QJsonDocument>
 #include <QJsonParseError>
+#include <QNetworkRequest>
+#include <QUrlQuery>
 
 namespace TheAltening {
 
@@ -16,32 +16,21 @@ QString storedApiKey()
     return APPLICATION->settings()->get(ApiKeySettingName).toString().trimmed();
 }
 
-} // namespace TheAltening
+}  // namespace TheAltening
 
-TheAlteningApi::TheAlteningApi(QObject *parent) : QObject(parent) {}
+TheAlteningApi::TheAlteningApi(QObject* parent) : QObject(parent) {}
 
 QString TheAlteningApi::errorMessageForStatus(int httpStatus)
 {
-    switch (httpStatus) {
-        case 401:
-            return QObject::tr("Invalid or missing The Altening API key.");
-        case 403:
-            return QObject::tr("Your The Altening plan cannot use this API endpoint. API access requires Basic or Premium (not Starter).");
-        case 404:
-            return QObject::tr("The Altening API endpoint was not found.");
-        case 500:
-            return QObject::tr("The Altening API reported an internal server error. Try again later.");
-        default:
-            return QObject::tr("The Altening API request failed (HTTP %1).").arg(httpStatus);
-    }
+    return TheAltening::errorMessageForStatus(httpStatus);
 }
 
-void TheAlteningApi::checkLicense(const QString &apiKey)
+void TheAlteningApi::checkLicense(const QString& apiKey)
 {
     get(QStringLiteral("license"), { { QStringLiteral("key"), apiKey } });
 }
 
-void TheAlteningApi::generate(const QString &apiKey, bool withInfo)
+void TheAlteningApi::generate(const QString& apiKey, bool withInfo)
 {
     QList<QPair<QString, QString>> query = { { QStringLiteral("key"), apiKey } };
     if (withInfo) {
@@ -50,15 +39,12 @@ void TheAlteningApi::generate(const QString &apiKey, bool withInfo)
     get(QStringLiteral("generate"), query);
 }
 
-void TheAlteningApi::info(const QString &apiKey, const QString &token)
+void TheAlteningApi::info(const QString& apiKey, const QString& token)
 {
-    get(QStringLiteral("info"), {
-        { QStringLiteral("key"), apiKey },
-        { QStringLiteral("token"), token }
-    });
+    get(QStringLiteral("info"), { { QStringLiteral("key"), apiKey }, { QStringLiteral("token"), token } });
 }
 
-void TheAlteningApi::get(const QString &path, const QList<QPair<QString, QString>> &query)
+void TheAlteningApi::get(const QString& path, const QList<QPair<QString, QString>>& query)
 {
     if (m_reply) {
         m_reply->disconnect(this);
@@ -69,7 +55,7 @@ void TheAlteningApi::get(const QString &path, const QList<QPair<QString, QString
 
     QUrl url(TheAltening::ApiBaseUrl + path);
     QUrlQuery urlQuery;
-    for (const auto &pair : query) {
+    for (const auto& pair : query) {
         urlQuery.addQueryItem(pair.first, pair.second);
     }
     url.setQuery(urlQuery);
@@ -82,7 +68,7 @@ void TheAlteningApi::get(const QString &path, const QList<QPair<QString, QString
 
 void TheAlteningApi::onReplyFinished()
 {
-    auto *reply = m_reply;
+    auto* reply = m_reply;
     m_reply = nullptr;
     if (!reply) {
         return;

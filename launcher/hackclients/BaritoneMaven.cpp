@@ -3,8 +3,8 @@
 
 #include "FileSystem.h"
 #include "Version.h"
-#include "net/Request.h"
 #include "net/NetJob.h"
+#include "net/Request.h"
 #include "tasks/Task.h"
 
 #include <QEventLoop>
@@ -24,29 +24,27 @@ namespace {
 const QHash<QString, QString>& officialFabricBuildVersions()
 {
     static const QHash<QString, QString> map = {
-        {"1.16.5", "1.6.5"},
-        {"1.17.1", "1.7.3"},
-        {"1.18.2", "1.8.5"},
-        {"1.19.2", "1.9.4"},
-        {"1.19.3", "1.9.1"},
-        {"1.19.4", "1.9.3"},
-        {"1.20.1", "1.10.1"},
+        { "1.16.5", "1.6.5" }, { "1.17.1", "1.7.3" }, { "1.18.2", "1.8.5" },  { "1.19.2", "1.9.4" },
+        { "1.19.3", "1.9.1" }, { "1.19.4", "1.9.3" }, { "1.20.1", "1.10.1" },
     };
     return map;
 }
 
-QString officialBaritoneArtifactVersion(const QString& minecraftVersion)
+}  // namespace
+
+QString officialArtifactVersion(const QString& minecraftVersion)
 {
     return officialFabricBuildVersions().value(minecraftVersion);
 }
 
-QUrl officialStandaloneFabricUrl(const QString& baritoneArtifactVersion)
+QUrl officialStandaloneFabricDownloadUrl(const QString& minecraftVersion)
 {
-    return QUrl(QString("https://github.com/cabaletta/baritone/releases/download/v%1/baritone-standalone-fabric-%1.jar")
-                    .arg(baritoneArtifactVersion));
+    const QString artifactVersion = officialArtifactVersion(minecraftVersion);
+    if (artifactVersion.isEmpty())
+        return {};
+    return QUrl(
+        QString("https://github.com/cabaletta/baritone/releases/download/v%1/baritone-standalone-fabric-%1.jar").arg(artifactVersion));
 }
-
-}  // namespace
 
 QList<BaritoneRelease> parseVersionIndex(const QByteArray& html)
 {
@@ -129,9 +127,7 @@ QString formatSupportedMinecraftVersions(const QList<BaritoneRelease>& releases,
     for (const auto& rel : releases)
         versions.append(rel.minecraftVersion);
 
-    std::sort(versions.begin(), versions.end(), [](const QString& a, const QString& b) {
-        return Version(a) > Version(b);
-    });
+    std::sort(versions.begin(), versions.end(), [](const QString& a, const QString& b) { return Version(a) > Version(b); });
 
     if (versions.size() <= maxShown)
         return versions.join(", ");
@@ -204,8 +200,7 @@ bool downloadBaritone(QNetworkAccessManager* network,
         return false;
     }
 
-    const QString basePath =
-        QString("%1%2").arg(QLatin1String(INDEX_URL), mavenVersion);
+    const QString basePath = QString("%1%2").arg(QLatin1String(INDEX_URL), mavenVersion);
 
     if (setStatus)
         setStatus(QObject::tr("Resolving Baritone for Minecraft %1…").arg(minecraftVersion));
@@ -213,8 +208,7 @@ bool downloadBaritone(QNetworkAccessManager* network,
     QByteArray metadata;
     QString remoteJarName;
     if (downloadByteArray(network, QUrl(basePath + "/maven-metadata.xml"), metadata, nullptr)) {
-        static const QRegularExpression jarSnapshotRe(
-            R"(<extension>jar</extension>\s*<value>([^<]+)</value>)");
+        static const QRegularExpression jarSnapshotRe(R"(<extension>jar</extension>\s*<value>([^<]+)</value>)");
         const auto match = jarSnapshotRe.match(QString::fromUtf8(metadata));
         if (match.hasMatch())
             remoteJarName = QString("baritone-fabric-%1.jar").arg(match.captured(1).trimmed());
@@ -241,11 +235,9 @@ static bool downloadOfficialBaritone(QNetworkAccessManager* network,
                                      QString* errorOut,
                                      const std::function<void(QString)>& setStatus)
 {
-    const QString artifactVersion = officialBaritoneArtifactVersion(minecraftVersion);
-    if (artifactVersion.isEmpty())
+    const QUrl url = officialStandaloneFabricDownloadUrl(minecraftVersion);
+    if (url.isEmpty())
         return false;
-
-    const QUrl url = officialStandaloneFabricUrl(artifactVersion);
     if (setStatus) {
         setStatus(QObject::tr("Downloading official Baritone for Minecraft %1 from GitHub…").arg(minecraftVersion));
     }
@@ -284,8 +276,9 @@ bool downloadBaritoneForMinecraft(QNetworkAccessManager* network,
         return true;
 
     if (errorOut) {
-        *errorOut = QObject::tr("Could not download Baritone for Minecraft %1.\n\n%2\n\nSupported versions "
-                                 "include: %3")
+        *errorOut = QObject::tr(
+                        "Could not download Baritone for Minecraft %1.\n\n%2\n\nSupported versions "
+                        "include: %3")
                         .arg(minecraftVersion,
                              officialError.isEmpty() ? QObject::tr("No rfresh2 Maven build and no official GitHub "
                                                                    "release mapping for this version.")

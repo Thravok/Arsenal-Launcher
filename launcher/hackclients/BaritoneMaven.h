@@ -4,8 +4,9 @@
 #include "QObjectPtr.h"
 
 #include <QList>
-#include <QString>
 #include <QNetworkAccessManager>
+#include <QString>
+#include <QUrl>
 
 #include <functional>
 
@@ -19,8 +20,7 @@ struct BaritoneRelease {
 
 namespace BaritoneMaven {
 
-static const char* const INDEX_URL =
-    "https://maven.2b2t.vc/releases/com/github/rfresh2/baritone-fabric/";
+static const char* const INDEX_URL = "https://maven.2b2t.vc/releases/com/github/rfresh2/baritone-fabric/";
 
 QList<BaritoneRelease> parseVersionIndex(const QByteArray& html);
 
@@ -35,6 +35,12 @@ QList<BaritoneRelease> officialOnlyReleases();
 
 /** Adds official-only releases when missing from a Maven-derived list. */
 void appendOfficialOnlyReleases(QList<BaritoneRelease>& releases);
+
+/** cabaletta/baritone GitHub artifact version for a Minecraft version, or empty if unmapped. */
+QString officialArtifactVersion(const QString& minecraftVersion);
+
+/** GitHub download URL for the official standalone Fabric JAR, or empty if unmapped. */
+QUrl officialStandaloneFabricDownloadUrl(const QString& minecraftVersion);
 
 bool fetchVersionIndex(QNetworkAccessManager* network, QByteArray& indexHtml, QString* errorOut);
 
