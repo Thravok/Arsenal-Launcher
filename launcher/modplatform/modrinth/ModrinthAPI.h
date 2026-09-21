@@ -115,9 +115,6 @@ class ModrinthAPI final : public ResourceAPI {
     }
     static ModPlatform::ResourceType getResourceType(const QString& param);
 
-   private:
-    static QString resourceTypeParameter(ModPlatform::ResourceType type);
-
     static QString createFacets(const SearchArgs& args)
     {
         QStringList facetsList;
@@ -150,6 +147,9 @@ class ModrinthAPI final : public ResourceAPI {
 
         return QString("[%1]").arg(facetsList.join(','));
     }
+
+   private:
+    static QString resourceTypeParameter(ModPlatform::ResourceType type);
 
    public:
     auto getSearchURL(const SearchArgs& args) const -> std::optional<QString> override
