@@ -709,6 +709,23 @@ class FileSystemTest : public QObject {
         QCOMPARE(FS::pathTruncate("C:\\bar\\foo.txt", 1), QDir::toNativeSeparators("C:\\bar"));
 #endif
     }
+
+    void test_removeInvalidPathAndFilenameChars()
+    {
+        QCOMPARE(FS::RemoveInvalidPathChars(QStringLiteral("jei-1.20.1.jar")), QStringLiteral("jei-1.20.1.jar"));
+        QCOMPARE(FS::RemoveInvalidPathChars(QStringLiteral("mods/jei:1.20.1?.jar")), QStringLiteral("mods/jei-1.20.1-.jar"));
+        QCOMPARE(FS::RemoveInvalidPathChars(QStringLiteral("bad<>:\"|?*name")), QStringLiteral("bad-------name"));
+        QCOMPARE(FS::RemoveInvalidPathChars(QStringLiteral("hello!world")), QStringLiteral("hello-world"));
+        QCOMPARE(FS::RemoveInvalidFilenameChars(QStringLiteral("mods/jei.jar")), QStringLiteral("mods-jei.jar"));
+        QCOMPARE(FS::RemoveInvalidFilenameChars(QStringLiteral("C:\\evil\\name?.jar")), QStringLiteral("C--evil-name-.jar"));
+
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QVERIFY(!FS::checkProblemticPathJava(QDir(dir.path())));
+        const QString bangDir = QDir(dir.path()).filePath("oh!no");
+        QVERIFY(QDir().mkpath(bangDir));
+        QVERIFY(FS::checkProblemticPathJava(QDir(bangDir)));
+    }
 };
 
 QTEST_GUILESS_MAIN(FileSystemTest)
