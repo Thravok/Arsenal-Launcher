@@ -127,6 +127,20 @@ class JavaVersionTest : public QObject {
         JavaVersion v(version);
         QCOMPARE(needs_permgen, v.requiresPermGen());
     }
+
+    void test_DefaultsToUtf8AndModular()
+    {
+        QVERIFY(!JavaVersion("1.8.0_22").defaultsToUtf8());
+        QVERIFY(!JavaVersion("17.0.2").defaultsToUtf8());
+        QVERIFY(JavaVersion("18").defaultsToUtf8());
+        QVERIFY(JavaVersion("21.0.1").defaultsToUtf8());
+        QVERIFY(!JavaVersion("not-a-version").defaultsToUtf8());
+
+        QVERIFY(!JavaVersion("1.8.0_22").isModular());
+        QVERIFY(JavaVersion("9").isModular());
+        QVERIFY(JavaVersion("17.0.2").isModular());
+        QVERIFY(!JavaVersion("not-a-version").isModular());
+    }
 };
 
 QTEST_GUILESS_MAIN(JavaVersionTest)
