@@ -28,6 +28,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <variant>
 
 #include <FileSystem.h>
 #include <MessageLevel.h>
@@ -48,6 +49,52 @@ class XmlLogParseTest : public QObject {
                      "[25Jul2026 14:10:58.723] [main/ERROR] [net.minecraftforge.fml.loading.moddiscovery.ModFileParser/LOADING]: error",
                      MessageLevel::Unknown),
                  MessageLevel::Error);
+    }
+
+    void guessLevel_legacyForgeAndExceptions()
+    {
+        QCOMPARE(LogParser::guessLevel("[INFO] [ForgeModLoader] hello", MessageLevel::Unknown), MessageLevel::Info);
+        QCOMPARE(LogParser::guessLevel("[CONFIG] loading", MessageLevel::Unknown), MessageLevel::Info);
+        QCOMPARE(LogParser::guessLevel("[SEVERE] crash", MessageLevel::Unknown), MessageLevel::Error);
+        QCOMPARE(LogParser::guessLevel("[STDERR] boom", MessageLevel::Unknown), MessageLevel::Error);
+        QCOMPARE(LogParser::guessLevel("[WARNING] old", MessageLevel::Unknown), MessageLevel::Warning);
+        QCOMPARE(LogParser::guessLevel("[DEBUG] x", MessageLevel::Unknown), MessageLevel::Debug);
+        QCOMPARE(LogParser::guessLevel("java.lang.RuntimeException: boom", MessageLevel::Unknown), MessageLevel::Error);
+        QCOMPARE(LogParser::guessLevel("Caused by: java.io.IOException: x", MessageLevel::Unknown), MessageLevel::Error);
+        QCOMPARE(LogParser::guessLevel("Exception in thread \"main\" java.lang.Error", MessageLevel::Unknown), MessageLevel::Error);
+        QCOMPARE(LogParser::guessLevel("overwriting existing file", MessageLevel::Unknown), MessageLevel::Fatal);
+        QCOMPARE(LogParser::guessLevel("\tat net.minecraft.Main.main", MessageLevel::Error), MessageLevel::Error);
+        QCOMPARE(LogParser::guessLevel("    continued", MessageLevel::Warning), MessageLevel::Warning);
+        QCOMPARE(LogParser::guessLevel("plain chatter", MessageLevel::Error), MessageLevel::Unknown);
+    }
+
+    void parseXml_partialThenCompleteEvent()
+    {
+        LogParser parser;
+        parser.appendLine("<log4j:Event logger=\"net.minecraft\" timestamp=\"1\" level=\"INFO\" thread=\"main\">");
+        const auto partial = parser.parseNext();
+        QVERIFY(partial.has_value());
+        QVERIFY(std::holds_alternative<LogParser::Partial>(*partial));
+
+        parser.appendLine("<log4j:Message>hello world</log4j:Message></log4j:Event>");
+        const auto items = parser.parseAvailable();
+        QCOMPARE(items.size(), 1);
+        QVERIFY(std::holds_alternative<LogParser::LogEntry>(items.front()));
+        const auto entry = std::get<LogParser::LogEntry>(items.front());
+        QCOMPARE(entry.logger, QStringLiteral("net.minecraft"));
+        QCOMPARE(entry.message, QStringLiteral("hello world"));
+        QCOMPARE(entry.level, MessageLevel::Info);
+        QCOMPARE(entry.thread, QStringLiteral("main"));
+    }
+
+    void parseXml_missingLoggerIsError()
+    {
+        LogParser parser;
+        parser.appendLine("<log4j:Event timestamp=\"1\" level=\"INFO\" thread=\"main\"><log4j:Message>x</log4j:Message></log4j:Event>");
+        const auto item = parser.parseNext();
+        QVERIFY(!item.has_value());
+        QVERIFY(parser.getError().has_value());
+        QVERIFY(parser.getError()->errMessage.contains(QStringLiteral("logger")));
     }
 
     void parseXml_data()
