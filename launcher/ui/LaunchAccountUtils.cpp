@@ -23,6 +23,21 @@ QString tr(const char* text, const char* comment = nullptr)
 
 }  // namespace
 
+MinecraftAccountPtr resolveAccountForLaunch(bool useInstanceAccount,
+                                            const MinecraftAccountPtr& instanceAccount,
+                                            const MinecraftAccountPtr& defaultAccount)
+{
+    if (useInstanceAccount) {
+        return instanceAccount;
+    }
+    return defaultAccount;
+}
+
+LaunchMode launchModeForOfflineAccount(bool canPlayFullGame)
+{
+    return canPlayFullGame ? LaunchMode::Offline : LaunchMode::Demo;
+}
+
 MinecraftAccountPtr accountForLaunch(BaseInstance* instance)
 {
     if (!instance) {
@@ -32,17 +47,17 @@ MinecraftAccountPtr accountForLaunch(BaseInstance* instance)
     auto accounts = APPLICATION->accounts();
     if (instance->settings()->get("UseAccountForInstance").toBool()) {
         const QString profileId = instance->settings()->get("InstanceAccountId").toString();
-        if (profileId.isEmpty()) {
-            return nullptr;
+        MinecraftAccountPtr pinned;
+        if (!profileId.isEmpty()) {
+            const int index = accounts->findAccountByProfileId(profileId);
+            if (index >= 0) {
+                pinned = accounts->at(index);
+            }
         }
-        const int index = accounts->findAccountByProfileId(profileId);
-        if (index >= 0) {
-            return accounts->at(index);
-        }
-        return nullptr;
+        return resolveAccountForLaunch(true, pinned, accounts->defaultAccount());
     }
 
-    return accounts->defaultAccount();
+    return resolveAccountForLaunch(false, nullptr, accounts->defaultAccount());
 }
 
 QString accountKindLabel(const MinecraftAccountPtr& account)
