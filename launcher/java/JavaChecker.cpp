@@ -131,11 +131,23 @@ void JavaChecker::finished(int exitcode, QProcess::ExitStatus status)
         return;
     }
 
-    bool success = true;
+    if (!parseCheckerOutput(m_stdout, result)) {
+        result.validity = Result::Validity::ReturnedInvalidData;
+        emit checkFinished(result);
+        emitSucceeded();
+        return;
+    }
 
+    qDebug() << "Java checker succeeded.";
+    emit checkFinished(result);
+    emitSucceeded();
+}
+
+bool JavaChecker::parseCheckerOutput(const QString& stdoutText, Result& result)
+{
     QMap<QString, QString> results;
 
-    QStringList lines = m_stdout.split("\n", Qt::SkipEmptyParts);
+    QStringList lines = stdoutText.split("\n", Qt::SkipEmptyParts);
     for (QString line : lines) {
         line = line.trimmed();
         // NOTE: workaround for GH-4125, where garbage is getting printed into stdout on bedrock linux
@@ -150,11 +162,9 @@ void JavaChecker::finished(int exitcode, QProcess::ExitStatus status)
         results.insert(parts[0], parts[1]);
     }
 
-    if (!results.contains("os.arch") || !results.contains("java.version") || !results.contains("java.vendor") || !success) {
+    if (!results.contains("os.arch") || !results.contains("java.version") || !results.contains("java.vendor")) {
         result.validity = Result::Validity::ReturnedInvalidData;
-        emit checkFinished(result);
-        emitSucceeded();
-        return;
+        return false;
     }
 
     auto osArch = results["os.arch"];
@@ -169,9 +179,7 @@ void JavaChecker::finished(int exitcode, QProcess::ExitStatus status)
     result.realPlatform = osArch;
     result.javaVersion = javaVersion;
     result.javaVendor = javaVendor;
-    qDebug() << "Java checker succeeded.";
-    emit checkFinished(result);
-    emitSucceeded();
+    return true;
 }
 
 void JavaChecker::error(QProcess::ProcessError err)

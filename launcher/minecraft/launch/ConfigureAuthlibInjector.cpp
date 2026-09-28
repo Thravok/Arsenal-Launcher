@@ -25,6 +25,38 @@ ConfigureAuthlibInjector::ConfigureAuthlibInjector(LaunchTask* parent,
       m_authlibinjector_base_url{ authlibinjector_base_url }
 {}
 
+bool AuthlibInjector::parseLatestJson(const QByteArray& json, LatestArtifact& out, QString* error)
+{
+    auto setError = [error](const QString& message) {
+        if (error)
+            *error = message;
+        return false;
+    };
+
+    QJsonParseError json_parse_error;
+    QJsonDocument doc = QJsonDocument::fromJson(json, &json_parse_error);
+    if (json_parse_error.error != QJsonParseError::NoError)
+        return setError(QString("Failed to parse authlib-injector info json: %1").arg(json_parse_error.errorString()));
+
+    if (!doc.isObject())
+        return setError(QString("Failed to parse authlib-injector info json: not a json object"));
+
+    QJsonObject obj = doc.object();
+    QString downloadUrl = obj["download_url"].toString();
+    if (downloadUrl.isNull() || downloadUrl.isEmpty())
+        return setError(QString("Failed to parse authlib-injector info json: download url missing"));
+
+    QString sha256Sum = obj["checksums"].toObject()["sha256"].toString();
+    if (sha256Sum.isNull() || sha256Sum.isEmpty())
+        return setError("Failed to parse authlib-injector info json: sha256 checksum missing");
+
+    out.downloadUrl = downloadUrl;
+    out.sha256 = QByteArray::fromHex(sha256Sum.toLatin1());
+    if (out.sha256.isEmpty())
+        return setError("Failed to parse authlib-injector info json: sha256 checksum missing");
+    return true;
+}
+
 void ConfigureAuthlibInjector::executeTask()
 {
     auto downloadFailed = [this] (QString reason) {
@@ -42,30 +74,16 @@ void ConfigureAuthlibInjector::executeTask()
         if (!authlibInjectorLatestJson.open(QIODevice::ReadOnly))
             return emitFailed(QString("Failed to open authlib-injector info json: %1").arg(authlibInjectorLatestJson.errorString()));
 
-        QJsonParseError json_parse_error;
-        QJsonDocument doc = QJsonDocument::fromJson(authlibInjectorLatestJson.readAll(), &json_parse_error);
-        if (json_parse_error.error != QJsonParseError::NoError)
-            return emitFailed(QString("Failed to parse authlib-injector info json: %1").arg(json_parse_error.errorString()));
+        AuthlibInjector::LatestArtifact artifact;
+        QString parseError;
+        if (!AuthlibInjector::parseLatestJson(authlibInjectorLatestJson.readAll(), artifact, &parseError))
+            return emitFailed(parseError);
 
-        if (!doc.isObject())
-            return emitFailed(QString("Failed to parse authlib-injector info json: not a json object"));
-        QJsonObject obj = doc.object();
-
-        QString authlibInjectorJarUrl = obj["download_url"].toString();
-        if (authlibInjectorJarUrl.isNull())
-            return emitFailed(QString("Failed to parse authlib-injector info json: download url missing"));
-
-        QString sha256Sum = obj["checksums"].toObject()["sha256"].toString();
-        if (sha256Sum.isNull())
-            return emitFailed("Failed to parse authlib-injector info json: sha256 checksum missing");
-
-        auto sha256SumRaw = QByteArray::fromHex(sha256Sum.toLatin1());
-
-        QString filename = QFileInfo(authlibInjectorJarUrl).fileName();
+        QString filename = QFileInfo(artifact.downloadUrl).fileName();
         auto javaAgentEntry = APPLICATION->metacache()->resolveEntry("authlibinjector", filename);
         m_job = std::make_unique<NetJob>("Download authlibinjector java agent", APPLICATION->network());
-        auto javaAgentDl = Net::Request::makeCached(QUrl(authlibInjectorJarUrl), javaAgentEntry, Net::Request::Option::MakeEternal);
-        javaAgentDl->addValidator(new Net::ChecksumValidator(QCryptographicHash::Sha256, sha256SumRaw));
+        auto javaAgentDl = Net::Request::makeCached(QUrl(artifact.downloadUrl), javaAgentEntry, Net::Request::Option::MakeEternal);
+        javaAgentDl->addValidator(new Net::ChecksumValidator(QCryptographicHash::Sha256, artifact.sha256));
         m_job->addNetAction(javaAgentDl);
         connect(m_job.get(), &NetJob::succeeded, this, [this, javaAgentEntry] {
             auto path = javaAgentEntry->getFullPath();

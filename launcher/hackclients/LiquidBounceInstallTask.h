@@ -7,7 +7,18 @@
 #include "QObjectPtr.h"
 #include "net/NetJob.h"
 
+#include <QList>
+#include <QUrl>
+
 namespace HackClients {
+
+struct CompanionDownload {
+    QUrl url;
+    QString filename;
+};
+
+/** Fabric API + Fabric Language Kotlin download URLs for a LiquidBounce build. */
+QList<CompanionDownload> liquidBounceCompanionDownloads(const LiquidBounceBuild& build);
 
 class LiquidBounceInstallTask final : public InstanceCreationTask {
     Q_OBJECT

@@ -11,6 +11,9 @@
 
 namespace HackClients {
 
+/** Locate the instance folder Impact Installer wrote under a fake MultiMC root. */
+bool findInstalledImpactInstance(const QString& mmcRoot, QString& outInstancePath);
+
 class ImpactInstallTask final : public InstanceCreationTask {
     Q_OBJECT
    public:
@@ -25,7 +28,6 @@ class ImpactInstallTask final : public InstanceCreationTask {
    private:
     bool ensureInstallerJar(QString& outPath);
     bool runInstaller(const QString& installerJar, const QString& mmcRoot);
-    bool locateInstalledInstance(const QString& mmcRoot, QString& outInstancePath);
     bool copyIntoStaging(const QString& sourceInstancePath);
 
     ImpactRelease m_release;

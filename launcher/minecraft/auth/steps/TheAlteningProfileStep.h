@@ -11,6 +11,13 @@ class TheAlteningProfileStep : public AuthStep {
     QString describe() override;
     void perform() override;
 
+    /**
+     * Apply a sessionserver profile payload onto account data.
+     * Preserves the auth UUID, prefers an unmasked Yggdrasil name, and strips '*' masks.
+     * Returns true when the Mojang-format JSON parsed.
+     */
+    static bool applyFetchedProfile(AccountData* data, QByteArray response);
+
    private slots:
     void onRequestDone(QByteArray* response);
 

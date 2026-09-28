@@ -34,6 +34,7 @@
  */
 
 #include "AccountData.h"
+#include "TheAlteningConfig.h"
 #include <QDebug>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -373,9 +374,8 @@ QString AccountData::profileName() const
     if (minecraftProfile.name.size() == 0) {
         // Altening generate API usernames are often masked with '*'; never use them as the
         // join name. Prefer them only as a pre-auth UI label after stripping invalid chars.
-        if (type == AccountType::TheAltening && !theAlteningAltUsername.isEmpty()) {
-            QString label = theAlteningAltUsername;
-            label.remove(QLatin1Char('*'));
+        if (type == AccountType::TheAltening) {
+            const QString label = TheAltening::unmaskUsername(theAlteningAltUsername);
             if (!label.isEmpty()) {
                 return label;
             }
@@ -385,8 +385,7 @@ QString AccountData::profileName() const
 
     // Older builds stored The Altening's privacy-masked name (with '*') as the profile name.
     if (type == AccountType::TheAltening && minecraftProfile.name.contains(QLatin1Char('*'))) {
-        QString cleaned = minecraftProfile.name;
-        cleaned.remove(QLatin1Char('*'));
+        const QString cleaned = TheAltening::unmaskUsername(minecraftProfile.name);
         if (!cleaned.isEmpty()) {
             return cleaned;
         }

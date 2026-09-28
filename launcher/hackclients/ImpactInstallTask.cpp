@@ -19,6 +19,30 @@ static const QUrl IMPACT_INSTALLER_URL(
     "https://github.com/ImpactDevelopment/Installer/releases/download/0.9.5/installer-0.9.5.jar");
 static const QString IMPACT_INSTALLER_NAME = "ImpactInstaller-0.9.5.jar";
 
+bool findInstalledImpactInstance(const QString& mmcRoot, QString& outInstancePath)
+{
+    QStringList candidates;
+    candidates << FS::PathCombine(mmcRoot, "instances");
+    candidates << FS::PathCombine(mmcRoot, "Contents", "MacOS", "instances");
+    candidates << FS::PathCombine(mmcRoot, "Contents", "Resources", "instances");
+
+    for (const auto& base : candidates) {
+        QDir dir(base);
+        if (!dir.exists())
+            continue;
+        QDirIterator it(base, QDir::Dirs | QDir::NoDotAndDotDot);
+        while (it.hasNext()) {
+            it.next();
+            auto path = it.filePath();
+            if (QFileInfo::exists(FS::PathCombine(path, "mmc-pack.json"))) {
+                outInstancePath = path;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 ImpactInstallTask::ImpactInstallTask(ImpactRelease release) : InstanceCreationTask(), m_release(std::move(release)) {}
 
 ImpactInstallTask::~ImpactInstallTask()
@@ -116,32 +140,6 @@ bool ImpactInstallTask::runInstaller(const QString& installerJar, const QString&
     return true;
 }
 
-bool ImpactInstallTask::locateInstalledInstance(const QString& mmcRoot, QString& outInstancePath)
-{
-    // Installer may write to mmcRoot/instances or mmcRoot/Contents/MacOS/instances
-    QStringList candidates;
-    candidates << FS::PathCombine(mmcRoot, "instances");
-    candidates << FS::PathCombine(mmcRoot, "Contents", "MacOS", "instances");
-    candidates << FS::PathCombine(mmcRoot, "Contents", "Resources", "instances");
-
-    for (const auto& base : candidates) {
-        QDir dir(base);
-        if (!dir.exists())
-            continue;
-        QDirIterator it(base, QDir::Dirs | QDir::NoDotAndDotDot);
-        while (it.hasNext()) {
-            it.next();
-            auto path = it.filePath();
-            if (QFileInfo::exists(FS::PathCombine(path, "mmc-pack.json"))) {
-                outInstancePath = path;
-                return true;
-            }
-        }
-    }
-    setError(tr("Impact Installer finished but no instance folder was found.\n%1").arg(m_installerLog.right(2000)));
-    return false;
-}
-
 bool ImpactInstallTask::copyIntoStaging(const QString& sourceInstancePath)
 {
     setStatus(tr("Importing Impact instance…"));
@@ -194,8 +192,10 @@ bool ImpactInstallTask::createInstance()
         return false;
 
     QString installedPath;
-    if (!locateInstalledInstance(mmcRoot, installedPath))
+    if (!findInstalledImpactInstance(mmcRoot, installedPath)) {
+        setError(tr("Impact Installer finished but no instance folder was found.\n%1").arg(m_installerLog.right(2000)));
         return false;
+    }
 
     return copyIntoStaging(installedPath);
 }

@@ -2,8 +2,22 @@
 
 #include <launch/LaunchStep.h>
 #include <minecraft/auth/MinecraftAccount.h>
+#include <QByteArray>
+#include <QString>
 #include <QStringList>
 #include "net/NetJob.h"
+
+namespace AuthlibInjector {
+
+struct LatestArtifact {
+    QString downloadUrl;
+    QByteArray sha256;
+};
+
+/** Parse authlib-injector artifact/latest.json. Empty download URL or SHA-256 is an error. */
+bool parseLatestJson(const QByteArray& json, LatestArtifact& out, QString* error = nullptr);
+
+}  // namespace AuthlibInjector
 
 class ConfigureAuthlibInjector: public LaunchStep
 {

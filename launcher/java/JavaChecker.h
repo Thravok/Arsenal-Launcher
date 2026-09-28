@@ -26,6 +26,12 @@ class JavaChecker : public Task {
         enum class Validity { Errored, ReturnedInvalidData, Valid } validity = Validity::Errored;
     };
 
+    /**
+     * Parse java-check stdout (key=value lines) into Result fields.
+     * Ignores Bedrock Linux garbage lines. Returns false when required keys are missing.
+     */
+    static bool parseCheckerOutput(const QString& stdoutText, Result& result);
+
     explicit JavaChecker(QString path, QString args, int minMem = 0, int maxMem = 0, int permGen = 0, int id = 0);
     ~JavaChecker() override = default;
 

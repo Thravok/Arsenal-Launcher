@@ -17,6 +17,24 @@
 
 namespace HackClients {
 
+QList<CompanionDownload> liquidBounceCompanionDownloads(const LiquidBounceBuild& build)
+{
+    QList<CompanionDownload> mods;
+    if (!build.fabricApiVersion.isEmpty()) {
+        auto ver = QString::fromUtf8(QUrl::toPercentEncoding(build.fabricApiVersion));
+        mods.append({ QUrl(QString("https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/%1/fabric-api-%2.jar")
+                               .arg(ver, build.fabricApiVersion)),
+                      QString("fabric-api-%1.jar").arg(build.fabricApiVersion) });
+    }
+    if (!build.kotlinModVersion.isEmpty()) {
+        auto ver = QString::fromUtf8(QUrl::toPercentEncoding(build.kotlinModVersion));
+        mods.append({ QUrl(QString("https://maven.fabricmc.net/net/fabricmc/fabric-language-kotlin/%1/fabric-language-kotlin-%2.jar")
+                               .arg(ver, build.kotlinModVersion)),
+                      QString("fabric-language-kotlin-%1.jar").arg(build.kotlinModVersion) });
+    }
+    return mods;
+}
+
 LiquidBounceInstallTask::LiquidBounceInstallTask(LiquidBounceBuild build)
     : InstanceCreationTask(), m_build(std::move(build))
 {}
@@ -108,32 +126,14 @@ bool LiquidBounceInstallTask::downloadAndExtractClient(const QString& modsDir)
 
 bool LiquidBounceInstallTask::downloadCompanionMods(const QString& modsDir)
 {
-    // Fabric API + Fabric Language Kotlin (required by LiquidBounce nextgen)
-    struct ModDl {
-        QString url;
-        QString filename;
-    };
-    QList<ModDl> mods;
-
-    if (!m_build.fabricApiVersion.isEmpty()) {
-        auto ver = QString::fromUtf8(QUrl::toPercentEncoding(m_build.fabricApiVersion));
-        mods.append({ QString("https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/%1/fabric-api-%2.jar")
-                          .arg(ver, m_build.fabricApiVersion),
-                      QString("fabric-api-%1.jar").arg(m_build.fabricApiVersion) });
-    }
-    if (!m_build.kotlinModVersion.isEmpty()) {
-        auto ver = QString::fromUtf8(QUrl::toPercentEncoding(m_build.kotlinModVersion));
-        mods.append({ QString("https://maven.fabricmc.net/net/fabricmc/fabric-language-kotlin/%1/fabric-language-kotlin-%2.jar")
-                          .arg(ver, m_build.kotlinModVersion),
-                      QString("fabric-language-kotlin-%1.jar").arg(m_build.kotlinModVersion) });
-    }
+    const auto mods = liquidBounceCompanionDownloads(m_build);
 
     for (const auto& mod : mods) {
         if (m_abort)
             return false;
         setStatus(tr("Downloading %1…").arg(mod.filename));
         QString dest = FS::PathCombine(modsDir, mod.filename);
-        if (!downloadFile(QUrl(mod.url), dest)) {
+        if (!downloadFile(mod.url, dest)) {
             setError(tr("Failed to download required mod %1.").arg(mod.filename));
             return false;
         }

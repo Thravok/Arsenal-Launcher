@@ -81,40 +81,47 @@ void TheAlteningProfileStep::onRequestDone(QByteArray* response)
 
     // Preserve the real username from Yggdrasil auth. The Altening generate API returns a
     // privacy-masked name (e.g. "BeanEater6942**") which is invalid for joining servers.
-    const QString authName = m_data->minecraftProfile.name;
-    const QString profileId = m_data->minecraftProfile.id;
-    const bool authNameUsable = !authName.isEmpty() && !authName.contains(QLatin1Char('*'));
-
-    if (Parsers::parseMinecraftProfileMojang(*response, m_data->minecraftProfile)) {
-        if (!profileId.isEmpty()) {
-            m_data->minecraftProfile.id = profileId;
-        }
-        // Prefer a clean auth name; otherwise keep whatever the profile response provided
-        // (Mojang fallback returns the real username).
-        if (authNameUsable) {
-            m_data->minecraftProfile.name = authName;
-        } else if (m_data->minecraftProfile.name.contains(QLatin1Char('*'))) {
-            QString cleaned = m_data->minecraftProfile.name;
-            cleaned.remove(QLatin1Char('*'));
-            if (!cleaned.isEmpty()) {
-                m_data->minecraftProfile.name = cleaned;
-            }
-        }
+    if (applyFetchedProfile(m_data, *response)) {
         emit finished(AccountTaskState::STATE_WORKING, tr("Fetched profile."));
         return;
     }
 
-    // Restore identity from auth if textures couldn't be parsed, then try Mojang once.
-    m_data->minecraftProfile.id = profileId;
-    if (authNameUsable) {
-        m_data->minecraftProfile.name = authName;
-    } else if (!authName.isEmpty()) {
-        QString cleaned = authName;
-        cleaned.remove(QLatin1Char('*'));
-        m_data->minecraftProfile.name = cleaned;
-    }
     if (tryMojangProfileFallback()) {
         return;
     }
     emit finished(AccountTaskState::STATE_WORKING, tr("The Altening profile ready."));
+}
+
+bool TheAlteningProfileStep::applyFetchedProfile(AccountData* data, QByteArray response)
+{
+    if (!data) {
+        return false;
+    }
+
+    const QString authName = data->minecraftProfile.name;
+    const QString profileId = data->minecraftProfile.id;
+    const bool authNameUsable = TheAltening::isUsableMinecraftUsername(authName);
+
+    if (Parsers::parseMinecraftProfileMojang(response, data->minecraftProfile)) {
+        if (!profileId.isEmpty()) {
+            data->minecraftProfile.id = profileId;
+        }
+        if (authNameUsable) {
+            data->minecraftProfile.name = authName;
+        } else if (data->minecraftProfile.name.contains(QLatin1Char('*'))) {
+            const QString cleaned = TheAltening::unmaskUsername(data->minecraftProfile.name);
+            if (!cleaned.isEmpty()) {
+                data->minecraftProfile.name = cleaned;
+            }
+        }
+        return true;
+    }
+
+    data->minecraftProfile.id = profileId;
+    if (authNameUsable) {
+        data->minecraftProfile.name = authName;
+    } else if (!authName.isEmpty()) {
+        data->minecraftProfile.name = TheAltening::unmaskUsername(authName);
+    }
+    return false;
 }

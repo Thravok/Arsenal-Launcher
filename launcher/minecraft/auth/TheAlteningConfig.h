@@ -32,6 +32,19 @@ inline QString skinCdnUrl(const QString &skinId)
     return skinCdnHeadUrl(skinId);
 }
 
+/** Strip The Altening privacy masks ('*') from a username. */
+inline QString unmaskUsername(QString name)
+{
+    name.remove(QLatin1Char('*'));
+    return name;
+}
+
+/** True if the name can be used to join servers (non-empty, not privacy-masked). */
+inline bool isUsableMinecraftUsername(const QString &name)
+{
+    return !name.isEmpty() && !name.contains(QLatin1Char('*'));
+}
+
 /** API key from launcher settings (trimmed). Empty if unset. */
 QString storedApiKey();
 
