@@ -85,16 +85,7 @@ void ConfigureAuthlibInjector::executeTask()
                 }
                 agentUrl = proxy->baseUrl();
                 if (m_extra_jvm_args) {
-                    m_extra_jvm_args->append(
-                        QStringLiteral("-Dauthlibinjector.yggdrasil.prefetched=%1")
-                            .arg(QString::fromLatin1(TheAlteningAuthlibProxy::prefetchedMetadataBase64())));
-                    // With profileKey at default, authlib-injector installs ProfileKeyFilter and
-                    // answers /player/certificates using publicKeySignature "AA==". Many servers
-                    // still reject that with "Invalid signature for profile public key".
-                    // "enabled" skips the dummy filter so the client does not attach that blob
-                    // (The Altening tokens are not valid for Mojang's certificate API).
-                    m_extra_jvm_args->append(QStringLiteral("-Dauthlibinjector.profileKey=enabled"));
-                    m_extra_jvm_args->append(QStringLiteral("-Dauthlibinjector.usernameCheck=disabled"));
+                    m_extra_jvm_args->append(TheAlteningAuthlibProxy::extraJvmArgs());
                 }
                 qDebug() << "The Altening authlib-injector proxy listening at" << agentUrl;
             }

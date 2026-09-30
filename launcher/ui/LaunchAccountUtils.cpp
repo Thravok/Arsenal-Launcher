@@ -23,6 +23,21 @@ QString tr(const char* text, const char* comment = nullptr)
 
 }  // namespace
 
+MinecraftAccountPtr resolveAccountForLaunch(bool useInstanceAccount,
+                                            const MinecraftAccountPtr& instanceAccount,
+                                            const MinecraftAccountPtr& defaultAccount)
+{
+    if (useInstanceAccount) {
+        return instanceAccount;
+    }
+    return defaultAccount;
+}
+
+LaunchMode launchModeForOfflineAccount(bool canPlayFullGame)
+{
+    return canPlayFullGame ? LaunchMode::Offline : LaunchMode::Demo;
+}
+
 MinecraftAccountPtr accountForLaunch(BaseInstance* instance)
 {
     if (!instance) {
@@ -32,17 +47,17 @@ MinecraftAccountPtr accountForLaunch(BaseInstance* instance)
     auto accounts = APPLICATION->accounts();
     if (instance->settings()->get("UseAccountForInstance").toBool()) {
         const QString profileId = instance->settings()->get("InstanceAccountId").toString();
-        if (profileId.isEmpty()) {
-            return nullptr;
+        MinecraftAccountPtr pinned;
+        if (!profileId.isEmpty()) {
+            const int index = accounts->findAccountByProfileId(profileId);
+            if (index >= 0) {
+                pinned = accounts->at(index);
+            }
         }
-        const int index = accounts->findAccountByProfileId(profileId);
-        if (index >= 0) {
-            return accounts->at(index);
-        }
-        return nullptr;
+        return resolveAccountForLaunch(true, pinned, accounts->defaultAccount());
     }
 
-    return accounts->defaultAccount();
+    return resolveAccountForLaunch(false, nullptr, accounts->defaultAccount());
 }
 
 QString accountKindLabel(const MinecraftAccountPtr& account)
@@ -109,6 +124,15 @@ bool blocksLaunch(const MinecraftAccountPtr& account)
 
     switch (account->accountState()) {
     case AccountState::Expired:
+        // LaunchController re-authenticates Expired Altening accounts with the daily
+        // alt token. Blocking here made that recovery path unreachable from the UI.
+        if (account->accountType() == AccountType::TheAltening) {
+            const auto* data = account->accountData();
+            if (data && !data->yggdrasilToken.extra.value(QStringLiteral("userName")).toString().isEmpty()) {
+                return false;
+            }
+        }
+        return true;
     case AccountState::Disabled:
     case AccountState::Gone:
         return true;

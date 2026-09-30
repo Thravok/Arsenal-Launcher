@@ -16,6 +16,24 @@
 
 namespace HackClients {
 
+namespace {
+
+bool finalizeBaritoneInstall(const QString& modsDir, const QString& destPath, const QString& tempPath, QString* errorOut)
+{
+    QFile::remove(destPath);
+    if (!QFile::rename(tempPath, destPath) && !QFile::copy(tempPath, destPath)) {
+        QFile::remove(tempPath);
+        if (errorOut)
+            *errorOut = QObject::tr("Failed to install Baritone into the mods folder.");
+        return false;
+    }
+    QFile::remove(tempPath);
+    replaceOtherBaritoneJars(modsDir, QFileInfo(destPath).fileName());
+    return true;
+}
+
+}  // namespace
+
 BaritoneModInstallTask::BaritoneModInstallTask(QString modsDir, QString minecraftVersion, QString mavenVersion,
                                                  QObject* parent)
     : Task(parent)
@@ -67,20 +85,16 @@ void BaritoneModInstallTask::executeTask()
 
     FS::ensureFolderPathExists(m_modsDir);
 
-    setStatus(tr("Removing older Baritone jars…"));
-    const QDir mods(m_modsDir);
-    for (const auto& entry : mods.entryList(QDir::Files)) {
-        if (entry.contains("baritone", Qt::CaseInsensitive))
-            QFile::remove(FS::PathCombine(m_modsDir, entry));
-    }
-
     // Meteor Client needs Meteor's Baritone fork (mod id baritone-meteor), not standalone Fabric Baritone.
     const bool useMeteorBaritone = modsFolderHasMeteorClient(m_modsDir);
     if (useMeteorBaritone) {
         const QString destPath =
             FS::PathCombine(m_modsDir, QString("baritone-meteor-%1.jar").arg(m_minecraftVersion));
-        if (!downloadMeteorBaritone(destPath)) {
-            QFile::remove(destPath);
+        const QString tempPath = destPath + QStringLiteral(".part");
+        QFile::remove(tempPath);
+
+        if (!downloadMeteorBaritone(tempPath)) {
+            QFile::remove(tempPath);
             if (m_abort) {
                 emitAborted();
                 return;
@@ -90,7 +104,15 @@ void BaritoneModInstallTask::executeTask()
             return;
         }
         if (m_abort) {
+            QFile::remove(tempPath);
             emitAborted();
+            return;
+        }
+
+        setStatus(tr("Installing Baritone…"));
+        QString installError;
+        if (!finalizeBaritoneInstall(m_modsDir, destPath, tempPath, &installError)) {
+            emitFailed(installError);
             return;
         }
         emitSucceeded();
@@ -98,21 +120,35 @@ void BaritoneModInstallTask::executeTask()
     }
 
     const QString destName = QString("baritone-fabric-%1.jar").arg(m_minecraftVersion);
+    const QString destPath = FS::PathCombine(m_modsDir, destName);
+    const QString tempPath = destPath + QStringLiteral(".part");
+    QFile::remove(tempPath);
+
     QString error;
     const bool ok = m_mavenVersion.isEmpty()
                         ? BaritoneMaven::downloadBaritoneForMinecraft(
-                              APPLICATION->network(), m_minecraftVersion, FS::PathCombine(m_modsDir, destName), &error,
+                              APPLICATION->network(), m_minecraftVersion, tempPath, &error,
                               [this](const QString& status) { setStatus(status); })
                         : BaritoneMaven::downloadBaritone(APPLICATION->network(), m_mavenVersion, m_minecraftVersion,
-                                                          FS::PathCombine(m_modsDir, destName), &error,
+                                                          tempPath, &error,
                                                           [this](const QString& status) { setStatus(status); });
 
     if (m_abort) {
+        QFile::remove(tempPath);
         emitAborted();
         return;
     }
     if (!ok) {
+        QFile::remove(tempPath);
         emitFailed(error.isEmpty() ? tr("Failed to download Baritone.") : error);
+        return;
+    }
+
+    // Only drop previous Baritone JARs after the new file is on disk.
+    setStatus(tr("Installing Baritone…"));
+    QString installError;
+    if (!finalizeBaritoneInstall(m_modsDir, destPath, tempPath, &installError)) {
+        emitFailed(installError);
         return;
     }
     emitSucceeded();

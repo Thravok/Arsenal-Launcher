@@ -42,6 +42,7 @@
 
 #include "net/NetUtils.h"
 #include "ui/InstanceWindow.h"
+#include "ui/LaunchAccountUtils.h"
 #include "ui/dialogs/CustomMessageBox.h"
 #include "ui/dialogs/MSALoginDialog.h"
 #include "ui/dialogs/ProfileSelectDialog.h"
@@ -83,15 +84,11 @@ void LaunchController::decideAccount()
         return;
     }
 
-    // Select the account to use. If the instance has a specific account set, that will be used. Otherwise, the default account will be used
+    // Honor UseAccountForInstance. A missing pin must not silently fall back to the
+    // global default — that can launch a Microsoft account onto an instance the user
+    // pinned to The Altening (or vice versa).
     auto* accounts = APPLICATION->accounts();
-    const auto instanceAccountId = m_instance->settings()->get("InstanceAccountId").toString();
-    const auto instanceAccountIndex = accounts->findAccountByProfileId(instanceAccountId);
-    if (instanceAccountIndex == -1 || instanceAccountId.isEmpty()) {
-        m_accountToUse = accounts->defaultAccount();
-    } else {
-        m_accountToUse = accounts->at(instanceAccountIndex);
-    }
+    m_accountToUse = LaunchAccountUtils::accountForLaunch(m_instance);
 
     if (!accounts->anyAccountIsValid()) {
         // Tell the user they need to log in at least one account in order to play.
@@ -112,7 +109,7 @@ void LaunchController::decideAccount()
     }
 
     if (!m_accountToUse && accounts->anyAccountIsValid()) {
-        // If no default account is set, ask the user which one to use.
+        // No default, or a pinned instance account was removed — ask which account to use.
         ProfileSelectDialog selectDialog(tr("Which account would you like to use?"), ProfileSelectDialog::GlobalDefaultCheckbox,
                                          m_parentWidget);
 
@@ -136,20 +133,23 @@ LaunchDecision LaunchController::decideLaunchMode()
     }
 
     const auto* accounts = APPLICATION->accounts();
-    MinecraftAccountPtr accountToCheck = nullptr;
 
-    if (m_accountToUse->accountType() != AccountType::Offline) {
-        accountToCheck = m_accountToUse->ownsMinecraft() ? m_accountToUse : nullptr;
-    } else if (const auto defaultAccount = accounts->defaultAccount(); defaultAccount && defaultAccount->ownsMinecraft()) {
-        accountToCheck = defaultAccount;
-    } else {
+    // Offline accounts have access token "0". Using another account's online state
+    // here used to set Normal mode (invalid session) or abort launch if that other
+    // account failed to refresh.
+    if (m_accountToUse->accountType() == AccountType::Offline) {
+        bool canPlayFullGame = false;
         for (int i = 0; i < accounts->count(); i++) {
-            if (const auto account = accounts->at(i); account->ownsMinecraft()) {
-                accountToCheck = account;
+            if (accounts->at(i)->ownsMinecraft()) {
+                canPlayFullGame = true;
                 break;
             }
         }
+        m_actualLaunchMode = LaunchAccountUtils::launchModeForOfflineAccount(canPlayFullGame);
+        return LaunchDecision::Continue;
     }
+
+    MinecraftAccountPtr accountToCheck = m_accountToUse->ownsMinecraft() ? m_accountToUse : nullptr;
 
     if (!accountToCheck) {
         m_actualLaunchMode = LaunchMode::Demo;
