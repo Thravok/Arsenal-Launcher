@@ -10,7 +10,7 @@
           "image-name" : "block.svg",
           "name" : "block",
           "position" : {
-            "scale" : 19.28,
+            "scale" : 1,
             "translation-in-points" : [
               0,
               0
@@ -46,7 +46,7 @@
           "image-name" : "rainbow.svg",
           "name" : "rainbow",
           "position" : {
-            "scale" : 19.28,
+            "scale" : 1,
             "translation-in-points" : [
               0,
               0

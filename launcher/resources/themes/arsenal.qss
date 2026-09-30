@@ -38,7 +38,7 @@ QMenuBar::item:pressed {
 QMenu {
     background-color: @glassElevatedRgba@;
     color: @windowText@;
-    border: 1px solid @glassBorderRgba@;
+    border: 1px solid @border@;
     border-radius: @radius@px;
     padding: 4px;
     menu-scrollable: 1;
@@ -65,21 +65,22 @@ QToolBar {
     padding: 6px 10px;
 }
 QFrame#instanceChromeBar {
-    background-color: transparent;
-    border: none;
-    border-bottom: 1px solid @glassBorderRgba@;
-    padding: 4px 4px 10px 4px;
+    background-color: @glassElevatedRgba@;
+    border: 1px solid @border@;
+    border-radius: @radius@px;
+    padding: 4px 8px;
     min-height: 44px;
+    margin: 0 0 10px 0;
 }
 QFrame#instanceChromeSeparator {
-    background: @glassBorderRgba@;
+    background: @border@;
     max-width: 1px;
     min-width: 1px;
     margin: 6px 10px;
 }
 QFrame#instanceChromeBar QToolButton#accountMenuButton {
-    background-color: @glassElevatedRgba@;
-    border: 1px solid @glassBorderRgba@;
+    background-color: @glassFillRgba@;
+    border: 1px solid @border@;
     border-radius: @radius@px;
     padding: 6px 16px 6px 10px;
     min-height: @controlHeight@px;
@@ -102,8 +103,8 @@ QFrame#instanceChromeBar QToolButton {
     font-weight: 500;
 }
 QFrame#instanceChromeBar QToolButton:hover {
-    background-color: @glassElevatedRgba@;
-    border-color: @glassBorderRgba@;
+    background-color: @alternateBaseRgba@;
+    border-color: @border@;
 }
 QFrame#instanceChromeBar QToolButton:pressed {
     background-color: @alternateBaseRgba@;
@@ -118,53 +119,184 @@ QToolBar::separator {
 }
 
 QFrame#instanceGridFrame {
-    background-color: @glassFillRgba@;
-    border: none;
-    padding: 4px 8px 8px 8px;
+    background-color: @glassWellRgba@;
+    border: 1px solid @border@;
+    border-radius: @radius@px;
+    padding: 10px 12px 12px 12px;
+    margin: 10px 8px 10px 10px;
 }
 
 QFrame#instanceActionPanel {
-    background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                      stop:0 @glassHighlightRgba@,
-                                      stop:0.06 @glassElevatedRgba@,
-                                      stop:1 @glassElevatedRgba@);
-    border: 1px solid @glassBorderRgba@;
-    border-right: none;
-    padding: 4px 0 4px 0;
-    margin: 10px 10px 10px 0;
-    border-top-left-radius: @radius@px;
-    border-bottom-left-radius: @radius@px;
+    background-color: @glassElevatedRgba@;
+    border: 1px solid @border@;
+    padding: 2px 0;
+    margin: 10px 12px 10px 6px;
+    border-radius: @radius@px;
 }
 
-QLabel#instancePanelSubtitle {
-    color: @mutedText@;
-    font-size: 11px;
-    padding: 0 2px 4px 2px;
+QFrame#instancePanelHero {
+    background-color: @glassFillRgba@;
+    border: 1px solid @border@;
+    border-radius: @radius@px;
 }
 
-QPushButton#instancePanelName {
+QToolButton#instancePanelIconButton {
+    background: transparent;
+    border: none;
+    padding: 4px;
+}
+QToolButton#instancePanelIconButton:hover {
+    background-color: @alternateBaseRgba@;
+    border-radius: 10px;
+}
+
+QLabel#chromeBrandLabel {
     color: @windowText@;
-    font-size: 16px;
-    font-weight: 600;
-    text-align: left;
-    padding: 2px 4px;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.2px;
+}
+
+QFrame#chromeBrand {
     background: transparent;
     border: none;
 }
 
+QLabel#instancePanelHomeTitle {
+    color: @windowText@;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+QLabel#instancePanelHomeSubtitle {
+    color: @mutedText@;
+    font-size: 12px;
+    padding: 0 4px;
+}
+
+QLabel#instancePanelHomeNameProtect {
+    color: @mutedText@;
+    font-size: 11px;
+    padding: 4px 2px;
+}
+
+QPushButton#instancePanelHomeAddButton {
+    background-color: @accent@;
+    color: @accentText@;
+    border: 1px solid @accent@;
+    border-radius: @radius@px;
+    padding: 12px 14px;
+    font-weight: 600;
+    min-height: 40px;
+}
+QPushButton#instancePanelHomeAddButton:hover {
+    background-color: @highlight@;
+    border-color: @highlight@;
+}
+
+QPushButton#instancePanelRecentButton {
+    text-align: left;
+    padding: 10px 12px;
+    border: 1px solid @border@;
+    border-radius: @radius@px;
+    color: @windowText@;
+    background-color: @glassFillRgba@;
+}
+QPushButton#instancePanelRecentButton:hover {
+    background-color: @alternateBaseRgba@;
+    border-color: @glassHighlightRgba@;
+}
+
+QLabel#instanceStatusChip {
+    color: @windowText@;
+    background-color: @glassFillRgba@;
+    border: 1px solid @border@;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 600;
+}
+QLabel#instanceStatusChip[tone="success"] {
+    color: @success@;
+    border-color: rgba(47, 191, 113, 80);
+    background-color: rgba(47, 191, 113, 24);
+}
+QLabel#instanceStatusChip[tone="danger"] {
+    color: @danger@;
+    border-color: rgba(224, 90, 90, 80);
+    background-color: rgba(224, 90, 90, 24);
+}
+QLabel#instanceStatusChip[tone="warning"] {
+    color: #e0b14a;
+    border-color: rgba(224, 177, 74, 80);
+    background-color: rgba(224, 177, 74, 24);
+}
+
+/* Shared footer secondary chrome: same height, radius, and surface. */
+QToolButton#instancePanelEditButton,
+QToolButton#instancePanelMoreButton {
+    background-color: @glassFillRgba@;
+    border: 1px solid @border@;
+    border-radius: @radius@px;
+    min-height: 40px;
+    max-height: 40px;
+    padding: 0 12px;
+    font-weight: 600;
+    font-size: 13px;
+}
+QToolButton#instancePanelEditButton {
+    padding: 0;
+}
+QToolButton#instancePanelEditButton:hover,
+QToolButton#instancePanelMoreButton:hover {
+    background-color: @alternateBaseRgba@;
+    border-color: @glassHighlightRgba@;
+}
+QToolButton#instancePanelEditButton:disabled,
+QToolButton#instancePanelMoreButton:disabled {
+    color: @mutedText@;
+    background-color: @glassFillRgba@;
+    border-color: @glassBorderRgba@;
+}
+
+QToolButton#instancePanelMoreButton {
+    color: @windowText@;
+    min-width: 56px;
+}
+QToolButton#instancePanelMoreButton::menu-indicator {
+    image: none;
+    width: 0;
+    height: 0;
+}
+
+QPushButton#instancePanelName {
+    color: @windowText@;
+    font-size: 18px;
+    font-weight: 700;
+    text-align: left;
+    padding: 2px 2px;
+    background: transparent;
+    border: none;
+}
+
+/* Launch and Kill swap the same primary slot. */
+QToolButton#launchPrimaryButton,
+QPushButton#instancePanelKillButton {
+    border-radius: @radius@px;
+    padding: 0 14px;
+    font-weight: 600;
+    font-size: 13px;
+    min-height: 40px;
+    max-height: 40px;
+}
 QToolButton#launchPrimaryButton {
     background-color: @success@;
     color: #ffffff;
     border: 1px solid @success@;
-    border-radius: @radius@px;
-    padding: 12px 16px;
-    font-weight: 600;
-    font-size: 13px;
-    min-height: 44px;
 }
 QToolButton#launchPrimaryButton:hover {
-    background-color: #39c97a;
-    border-color: #39c97a;
+    background-color: @successHover@;
+    border-color: @successHover@;
     color: #ffffff;
 }
 QToolButton#launchPrimaryButton:disabled {
@@ -174,20 +306,18 @@ QToolButton#launchPrimaryButton:disabled {
 }
 QToolButton#launchPrimaryButton::menu-button {
     background-color: @success@;
-    border: 1px solid @success@;
+    border: none;
+    border-left: 1px solid rgba(255, 255, 255, 0.35);
     border-top-right-radius: @radius@px;
     border-bottom-right-radius: @radius@px;
-    border-left: 1px solid rgba(255, 255, 255, 0.35);
-    padding: 12px 8px;
     width: 28px;
+    padding: 0;
 }
 QToolButton#launchPrimaryButton::menu-button:hover {
-    background-color: #39c97a;
-    border-color: #39c97a;
+    background-color: @successHover@;
 }
 QToolButton#launchPrimaryButton::menu-button:disabled {
     background-color: @alternateBaseRgba@;
-    border-color: @glassBorderRgba@;
     border-left-color: @glassBorderRgba@;
 }
 QToolButton#launchPrimaryButton::menu-indicator {
@@ -197,24 +327,24 @@ QToolButton#launchPrimaryButton::menu-indicator {
 }
 
 QPushButton#instancePanelKillButton {
-    color: @danger@;
-    border: 1px solid transparent;
-    border-radius: @radius@px;
-    padding: 10px 14px;
-    min-height: 44px;
-    background: transparent;
+    background-color: @danger@;
+    color: #ffffff;
+    border: 1px solid @danger@;
 }
 QPushButton#instancePanelKillButton:hover {
-    background-color: @alternateBaseRgba@;
-    border-color: @glassBorderRgba@;
+    background-color: @dangerHover@;
+    border-color: @dangerHover@;
+    color: #ffffff;
 }
 QPushButton#instancePanelKillButton:disabled {
+    background-color: @alternateBaseRgba@;
     color: @mutedText@;
+    border-color: @glassBorderRgba@;
 }
 
 QFrame#instanceAccountPicker {
     background-color: @glassFillRgba@;
-    border: 1px solid @glassBorderRgba@;
+    border: 1px solid @border@;
     border-radius: @radius@px;
     min-height: 48px;
 }
@@ -355,6 +485,30 @@ QToolButton:pressed, QToolButton:checked {
     border-color: @highlight@;
 }
 
+QFrame#instanceChromeBar QToolButton#hideNamesButton {
+    background-color: @glassElevatedRgba@;
+    color: @windowText@;
+    border: 1px solid @glassBorderRgba@;
+    border-radius: @radius@px;
+    padding: 6px 12px;
+    min-height: @controlHeight@px;
+    font-weight: 600;
+}
+QFrame#instanceChromeBar QToolButton#hideNamesButton:hover {
+    background-color: @alternateBaseRgba@;
+    border-color: @glassHighlightRgba@;
+}
+QFrame#instanceChromeBar QToolButton#hideNamesButton:checked {
+    background-color: @success@;
+    color: #ffffff;
+    border-color: @success@;
+}
+QFrame#instanceChromeBar QToolButton#hideNamesButton:checked:hover {
+    background-color: @successHover@;
+    border-color: @successHover@;
+    color: #ffffff;
+}
+
 QStatusBar {
     background-color: @glassElevatedRgba@;
     color: @mutedText@;
@@ -370,10 +524,10 @@ QPushButton {
                                       stop:0.12 @buttonRgba@,
                                       stop:1 @buttonRgba@);
     color: @buttonText@;
-    border: 1px solid @glassBorderRgba@;
+    border: 1px solid @border@;
     border-radius: @radius@px;
-    padding: 6px 14px;
-    min-height: 22px;
+    padding: 8px 16px;
+    min-height: @controlHeight@px;
 }
 QPushButton:hover {
     background-color: @alternateBaseRgba@;
@@ -406,9 +560,10 @@ QPushButton#searchButton[filterActive="true"] {
 QLineEdit, QTextEdit, QPlainTextEdit, QSpinBox, QDoubleSpinBox, QComboBox {
     background-color: @glassFillRgba@;
     color: @text@;
-    border: 1px solid @glassBorderRgba@;
+    border: 1px solid @border@;
     border-radius: @radius@px;
-    padding: 5px 8px;
+    padding: 8px 12px;
+    min-height: 32px;
     selection-background-color: @highlight@;
     selection-color: @highlightedText@;
 }
@@ -445,7 +600,7 @@ QCheckBox::indicator, QRadioButton::indicator {
 
 QGroupBox {
     background-color: @glassElevatedRgba@;
-    border: 1px solid @glassBorderRgba@;
+    border: 1px solid @border@;
     border-radius: @radius@px;
     margin-top: 12px;
     padding: 12px 10px 10px 10px;
@@ -459,7 +614,7 @@ QGroupBox::title {
 }
 
 QTabWidget::pane {
-    border: 1px solid @glassBorderRgba@;
+    border: 1px solid @border@;
     border-radius: @radius@px;
     background-color: @glassElevatedRgba@;
     top: -1px;
@@ -488,15 +643,15 @@ QListView, QTreeView, QTableView {
     background-color: @glassFillRgba@;
     alternate-background-color: @alternateBaseRgba@;
     color: @text@;
-    border: 1px solid @glassBorderRgba@;
+    border: 1px solid @border@;
     border-radius: @radius@px;
     outline: 0;
     selection-background-color: @highlight@;
     selection-color: @highlightedText@;
 }
 QListView::item, QTreeView::item {
-    padding: 4px;
-    border-radius: 6px;
+    padding: 6px 8px;
+    border-radius: 8px;
 }
 QListView::item:hover, QTreeView::item:hover {
     background-color: @alternateBaseRgba@;
@@ -506,14 +661,36 @@ QListView::item:selected, QTreeView::item:selected {
     color: @highlightedText@;
 }
 
+/* Settings / instance / New Instance page chrome */
+QFrame#pageSidebar {
+    background-color: @glassElevatedRgba@;
+    border: none;
+    border-right: 1px solid @border@;
+}
+QFrame#pageHeaderBar {
+    background-color: @glassElevatedRgba@;
+    border: none;
+    border-bottom: 1px solid @border@;
+}
+QFrame#pageContentWell {
+    background-color: @glassWellRgba@;
+    border: none;
+}
+QLineEdit#pageFilter {
+    background-color: @glassFillRgba@;
+    border: 1px solid @glassBorderRgba@;
+    border-radius: 10px;
+    padding: 6px 10px;
+    min-height: 32px;
+}
+
 /* Settings / instance page sidebar */
 QListView#pageList,
 QTreeView#pageList {
-    background-color: @glassElevatedRgba@;
+    background-color: transparent;
     border: none;
-    border-right: 1px solid @glassBorderRgba@;
     border-radius: 0;
-    padding: 8px 6px;
+    padding: 4px 2px;
     outline: 0;
 }
 QListView#pageList::item,
@@ -521,7 +698,7 @@ QTreeView#pageList::item {
     padding: 8px 12px;
     margin: 2px 4px;
     border-radius: 8px;
-    min-height: 24px;
+    min-height: @sidebarRowHeight@px;
 }
 QListView#pageList::item:selected,
 QTreeView#pageList::item:selected {
@@ -628,19 +805,32 @@ QProgressBar::chunk {
 }
 
 QSplitter::handle {
-    background-color: @glassBorderRgba@;
+    background-color: @border@;
 }
 QSplitter::handle:horizontal {
-    width: 1px;
+    width: 2px;
 }
 QSplitter::handle:vertical {
-    height: 1px;
+    height: 2px;
 }
 
 QLabel#pageHeader {
     color: @windowText@;
     font-weight: 700;
-    padding: 4px 0;
+    font-size: 16px;
+    padding: 2px 0;
+}
+
+QPushButton#openGlobalSettingsButton {
+    min-height: @controlHeight@px;
+    font-weight: 600;
+    text-align: left;
+    padding-left: 16px;
+}
+QLabel#openGlobalSettingsHint {
+    color: @mutedText@;
+    font-size: 12px;
+    padding: 0 4px 4px 4px;
 }
 
 QFrame#InfoFrame, QFrame#infoFrame {
@@ -660,36 +850,96 @@ QDialogButtonBox {
     button-layout: 0;
 }
 
-/* Hack clients (New Instance) */
-QListWidget#clientList {
-    background-color: @glassElevatedRgba@;
-    border: 1px solid @glassBorderRgba@;
-    border-radius: @radius@px;
-    padding: 6px;
+/* Hack clients catalog (New Instance) */
+QScrollArea#clientCatalog {
+    background: transparent;
+    border: none;
+}
+QScrollArea#clientCatalog > QWidget > QWidget {
+    background: transparent;
+}
+QLabel#hackClientCategoryHeader {
+    color: @mutedText@;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 8px 4px 2px 4px;
+}
+QToolButton#hackClientCard {
+    background-color: @buttonRgba@;
+    border: 2px solid @border@;
+    border-radius: 12px;
+    padding: 14px 10px 12px 10px;
+    min-width: 128px;
+    min-height: 122px;
+    color: @windowText@;
+    font-weight: 600;
+    font-size: 12px;
+}
+QToolButton#hackClientCard:hover {
+    background-color: @alternateBaseRgba@;
+    border-color: @glassHighlightRgba@;
+}
+QToolButton#hackClientCard:checked {
+    background-color: @alternateBaseRgba@;
+    color: @windowText@;
+    border-color: @highlight@;
+}
+QToolButton#hackClientCard:checked:hover {
+    background-color: @alternateBaseRgba@;
+    border-color: @highlight@;
+}
+QToolButton#hackClientCard:focus {
     outline: none;
 }
-QListWidget#clientList::item {
-    border-radius: 8px;
-    padding: 8px 10px;
-    margin: 2px 0;
-}
-QListWidget#clientList::item:selected {
-    background-color: @highlight@;
-    color: @highlightedText@;
-}
-QListWidget#clientList::item:hover:!selected {
-    background-color: @alternateBaseRgba@;
+QFrame#hackClientDetail {
+    background-color: @glassElevatedRgba@;
+    border: 1px solid @border@;
+    border-radius: @radius@px;
 }
 QTextBrowser#hackClientDescription {
-    background-color: @glassElevatedRgba@;
-    border: 1px solid @glassBorderRgba@;
-    border-radius: @radius@px;
+    background-color: transparent;
+    border: none;
     padding: 10px;
     color: @windowText@;
 }
 QPushButton#refreshButton {
     padding-left: 12px;
     padding-right: 14px;
+}
+
+QListView#packView,
+QListView#publicPackList,
+QListView#thirdPartyPackList,
+QListView#privatePackList,
+QListView#modpackList {
+    background-color: @glassWellRgba@;
+    border: 1px solid @border@;
+    border-radius: @radius@px;
+    padding: 6px 4px;
+    outline: 0;
+}
+QListView#packView::item,
+QListView#publicPackList::item,
+QListView#thirdPartyPackList::item,
+QListView#privatePackList::item,
+QListView#modpackList::item {
+    padding: 0;
+    margin: 3px 0;
+    border: none;
+    background: transparent;
+}
+QListView#packView::item:hover,
+QListView#packView::item:selected,
+QListView#publicPackList::item:hover,
+QListView#publicPackList::item:selected,
+QListView#thirdPartyPackList::item:hover,
+QListView#thirdPartyPackList::item:selected,
+QListView#privatePackList::item:hover,
+QListView#privatePackList::item:selected,
+QListView#modpackList::item:hover,
+QListView#modpackList::item:selected {
+    background: transparent;
 }
 
 /* Progress dialog — per-download resource list */

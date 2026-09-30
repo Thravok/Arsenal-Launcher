@@ -10,6 +10,8 @@
         <file>scalable/copy.svg</file>
         <file>scalable/coremods.svg</file>
         <file>scalable/custom-commands.svg</file>
+        <file>scalable/delete.svg</file>
+        <file>scalable/export.svg</file>
         <file>scalable/externaltools.svg</file>
         <file>scalable/help.svg</file>
         <file>scalable/instance-settings.svg</file>
@@ -32,12 +34,15 @@
         <file>scalable/screenshots.svg</file>
         <file>scalable/settings.svg</file>
         <file>scalable/shaderpacks.svg</file>
+        <file>scalable/shortcut.svg</file>
         <file>scalable/star.svg</file>
         <file>scalable/status-bad.svg</file>
         <file>scalable/status-good.svg</file>
         <file>scalable/status-yellow.svg</file>
         <file>scalable/storage.svg</file>
+        <file>scalable/tag.svg</file>
         <file>scalable/viewfolder.svg</file>
         <file>scalable/worlds.svg</file>
+        <file>scalable/instances/epsilon.svg</file>
     </qresource>
 </RCC>

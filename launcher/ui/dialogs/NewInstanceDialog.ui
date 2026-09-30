@@ -88,7 +88,7 @@
    <item>
     <widget class="QCheckBox" name="installArsenalUtilitiesCheck">
      <property name="text">
-      <string>Install Arsenal utilities</string>
+      <string>Install Arsenal NameProtect</string>
      </property>
      <property name="toolTip">
       <string>When enabled, installs Arsenal NameProtect into Fabric instances after creation (client-side name aliases). Ignored for non-Fabric loaders.</string>

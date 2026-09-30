@@ -55,6 +55,7 @@ class QGridLayout;
 class QToolButton;
 class QMenu;
 class QWidget;
+class QFrame;
 
 class PageContainer : public QWidget, public BasePageContainer {
     Q_OBJECT
@@ -93,7 +94,11 @@ class PageContainer : public QWidget, public BasePageContainer {
 
     void changeEvent(QEvent*) override;
 
-    void hidePageList() { m_pageList->hide(); }
+    void hidePageList()
+    {
+        if (m_sidebarColumn)
+            m_sidebarColumn->hide();
+    }
 
    private:
     void createUI();
@@ -120,6 +125,9 @@ class PageContainer : public QWidget, public BasePageContainer {
     QStackedLayout* m_pageStack;
     QListView* m_pageList;
     QWidget* m_sidebarColumn = nullptr;
+    QFrame* m_headerBar = nullptr;
+    QFrame* m_contentWell = nullptr;
+    QLineEdit* m_pageFilter = nullptr;
     QToolButton* m_morePlatformsButton = nullptr;
     QMenu* m_morePlatformsMenu = nullptr;
     QLabel* m_header;

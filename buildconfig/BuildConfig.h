@@ -197,6 +197,13 @@ class Config {
     QString printableVersionString() const;
 
     /**
+     * \brief True when this binary was built from an exact version tag
+     *        matching VERSION_MAJOR.MINOR.PATCH (with or without a "v" prefix).
+     *        Source / branch / CI non-tag builds return false.
+     */
+    bool isPublicRelease() const;
+
+    /**
      * \brief Compiler ID String
      * \return a string of the form "Name - Version"  of just "Name" if the version is empty
      */

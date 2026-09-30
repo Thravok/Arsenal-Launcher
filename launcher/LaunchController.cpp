@@ -160,8 +160,7 @@ LaunchDecision LaunchController::decideLaunchMode()
     const bool needsRefresh =
         m_wantedLaunchMode == LaunchMode::Normal && (state == AccountState::Offline || accountToCheck->shouldRefresh());
     // Altening "Expired" is usually a stale access token; Refresh re-auths with the alt token.
-    const bool alteningCanRecover =
-        state == AccountState::Expired && accountToCheck->accountType() == AccountType::TheAltening;
+    const bool alteningCanRecover = state == AccountState::Expired && accountToCheck->accountType() == AccountType::TheAltening;
     if (state == AccountState::Unchecked || state == AccountState::Errored || needsRefresh || alteningCanRecover) {
         accountToCheck->refresh();
         state = AccountState::Working;
@@ -313,8 +312,8 @@ void LaunchController::login()
     m_accountToUse->fillSession(m_session);
 
     if (m_accountToUse->accountType() != AccountType::Offline) {
-        if (m_actualLaunchMode == LaunchMode::Normal && !m_accountToUse->hasProfile()
-            && m_accountToUse->accountType() != AccountType::TheAltening) {
+        if (m_actualLaunchMode == LaunchMode::Normal && !m_accountToUse->hasProfile() &&
+            m_accountToUse->accountType() != AccountType::TheAltening) {
             // Now handle setting up a profile name here...
             if (ProfileSetupDialog dialog(m_accountToUse, m_parentWidget); dialog.exec() != QDialog::Accepted) {
                 emitAborted();

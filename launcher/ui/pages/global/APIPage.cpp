@@ -60,8 +60,10 @@ APIPage::APIPage(QWidget* parent) : QWidget(parent), ui(new Ui::APIPage)
                              static_cast<int>(PasteUpload::Type::PasteGG), static_cast<int>(PasteUpload::Type::Hastebin) };
 
     static const QRegularExpression s_validUrlRegExp("https?://.+");
-    static const QRegularExpression s_validMSAClientID(
-        QRegularExpression::anchoredPattern("[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"));
+    // Azure app IDs are UUIDs; the official Minecraft launcher still uses the older
+    // 16-hex Live client ID (e.g. 00000000402B5328) for local/dev testing.
+    static const QRegularExpression s_validMSAClientID(QRegularExpression::anchoredPattern(
+        "([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|[0-9a-fA-F]{16})"));
 
     ui->setupUi(this);
 

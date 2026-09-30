@@ -2,10 +2,11 @@
 /*
  *  Prism Launcher - Minecraft Launcher
  *  Copyright (C) 2022 Sefa Eyeoglu <contact@scrumplex.net>
+ *  Copyright (C) 2026 Arsenal Launcher Contributors
  *
  *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation, version 3.
+ *  it under the terms of the GNU General Public License as published by the Free
+ *  Software Foundation, version 3.
  *
  *  This program is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -37,6 +38,7 @@
 #include <QApplication>
 #include <QDebug>
 #include <QPainter>
+#include <QPainterPath>
 #include <QTextLayout>
 #include <QTextOption>
 #include <QtMath>
@@ -53,7 +55,6 @@ static void viewItemTextLayout(QTextLayout& textLayout, int lineWidth, qreal& he
     height = 0;
     widthUsed = 0;
     textLayout.beginLayout();
-    QString str = textLayout.text();
     while (true) {
         QTextLine line = textLayout.createLine();
         if (!line.isValid())
@@ -70,55 +71,152 @@ static void viewItemTextLayout(QTextLayout& textLayout, int lineWidth, qreal& he
 
 ListViewDelegate::ListViewDelegate(QObject* parent) : QStyledItemDelegate(parent) {}
 
-void drawSelectionRect(QPainter* painter, const QStyleOptionViewItem& option, const QRect& rect)
+static constexpr int kInstanceCardWidth = 120;
+static constexpr int kInstanceIconSize = 64;
+static constexpr int kInstanceCardRadius = 12;
+static constexpr int kInstanceCardPadding = 10;
+static constexpr int kPlayButtonSize = 22;
+
+QRect ListViewDelegate::playButtonRect(const QRect& itemRect)
 {
-    if ((option.state & QStyle::State_Selected))
-        painter->fillRect(rect, option.palette.brush(QPalette::Highlight));
-    else {
-        QColor backgroundColor = option.palette.color(QPalette::Window);
-        backgroundColor.setAlpha(160);
-        painter->fillRect(rect, QBrush(backgroundColor));
+    // Sit on the lower-right of the icon tile area (above the label).
+    const int tileBottom = itemRect.top() + kInstanceCardPadding + kInstanceIconSize;
+    const int x = itemRect.right() - kInstanceCardPadding - kPlayButtonSize + 2;
+    const int y = tileBottom - kPlayButtonSize + 2;
+    return QRect(x, y, kPlayButtonSize, kPlayButtonSize);
+}
+
+bool ListViewDelegate::hitPlayButton(const QRect& itemRect, const QPoint& pos)
+{
+    return playButtonRect(itemRect).adjusted(-2, -2, 2, 2).contains(pos);
+}
+
+int ListViewDelegate::preferredItemWidth()
+{
+    return kInstanceCardWidth;
+}
+
+static void drawInstanceCard(QPainter* painter, const QStyleOptionViewItem& option)
+{
+    painter->save();
+    painter->setRenderHint(QPainter::Antialiasing, true);
+
+    // Full item card — icon + name share one bordered plate.
+    const QRectF cardRect = QRectF(option.rect).adjusted(1, 1, -1, -1);
+
+    QColor fill = option.palette.color(QPalette::Button);
+    fill.setAlphaF(0.92);
+    QColor border = option.palette.color(QPalette::WindowText);
+    border.setAlphaF(0.14);
+
+    if (option.state & QStyle::State_Selected) {
+        fill = option.palette.color(QPalette::Base);
+        fill.setAlphaF(0.95);
+        border = option.palette.color(QPalette::Highlight);
+        border.setAlphaF(1.0);
+    } else if (option.state & QStyle::State_MouseOver) {
+        border.setAlphaF(0.28);
+        fill = fill.lighter(108);
     }
+
+    painter->setPen(QPen(border, option.state & QStyle::State_Selected ? 2.0 : 1.0));
+    painter->setBrush(fill);
+    painter->drawRoundedRect(cardRect, kInstanceCardRadius, kInstanceCardRadius);
+
+    if (option.state & QStyle::State_Selected) {
+        QColor glow = option.palette.color(QPalette::Highlight);
+        glow.setAlphaF(0.22);
+        painter->setPen(QPen(glow, 4.0));
+        painter->setBrush(Qt::NoBrush);
+        painter->drawRoundedRect(cardRect.adjusted(-1.5, -1.5, 1.5, 1.5), kInstanceCardRadius + 1, kInstanceCardRadius + 1);
+    }
+
+    painter->restore();
 }
 
-void drawFocusRect(QPainter* painter, const QStyleOptionViewItem& option, const QRect& rect)
+static void drawPlayButton(QPainter* painter, const QStyleOptionViewItem& option, BaseInstance* instance)
 {
-    if (!(option.state & QStyle::State_HasFocus))
+    if (!instance) {
         return;
-    QStyleOptionFocusRect opt;
-    opt.direction = option.direction;
-    opt.fontMetrics = option.fontMetrics;
-    opt.palette = option.palette;
-    opt.rect = rect;
-    // opt.state           = option.state | QStyle::State_KeyboardFocusChange |
-    // QStyle::State_Item;
-    auto col = option.state & QStyle::State_Selected ? QPalette::Highlight : QPalette::Base;
-    opt.backgroundColor = option.palette.color(col);
-    // Apparently some widget styles expect this hint to not be set
-    painter->setRenderHint(QPainter::Antialiasing, false);
+    }
 
-    QStyle* style = option.widget ? option.widget->style() : QApplication::style();
+    const bool running = instance->isRunning();
+    const bool canLaunch = instance->canLaunch() && !running;
+    if (!canLaunch && !running) {
+        return;
+    }
 
-    style->drawPrimitive(QStyle::PE_FrameFocusRect, &opt, painter, option.widget);
-
-    painter->setRenderHint(QPainter::Antialiasing);
-}
-
-// TODO this can be made a lot prettier
-void drawProgressOverlay(QPainter* painter, const QStyleOptionViewItem& option, const int value, const int maximum)
-{
-    if (maximum == 0 || value == maximum) {
+    // Show on hover/selection, or always when running (stop affordance).
+    const bool show = running || (option.state & (QStyle::State_MouseOver | QStyle::State_Selected));
+    if (!show) {
         return;
     }
 
     painter->save();
+    painter->setRenderHint(QPainter::Antialiasing, true);
 
-    qreal percent = (qreal)value / (qreal)maximum;
-    QColor color = option.palette.color(QPalette::Dark);
-    color.setAlphaF(0.70f);
-    painter->setBrush(color);
-    painter->setPen(QPen(QBrush(), 0));
-    painter->drawPie(option.rect, 90 * 16, -percent * 360 * 16);
+    const QRect rect = ListViewDelegate::playButtonRect(option.rect);
+    QColor fill = option.palette.color(QPalette::Highlight);
+    // Prefer success green from palette link/bright if available — use a fixed Lunar-like green.
+    fill = QColor(0x2f, 0xbf, 0x71);
+    if (running) {
+        fill = QColor(0xe0, 0x5a, 0x5a);
+    }
+
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(fill);
+    painter->drawEllipse(rect);
+
+    painter->setBrush(Qt::white);
+    if (running) {
+        const int inset = 7;
+        painter->drawRoundedRect(rect.adjusted(inset, inset, -inset, -inset), 2, 2);
+    } else {
+        QPolygonF tri;
+        const qreal cx = rect.center().x() + 1.0;
+        const qreal cy = rect.center().y();
+        tri << QPointF(cx - 4.0, cy - 5.0) << QPointF(cx - 4.0, cy + 5.0) << QPointF(cx + 5.0, cy);
+        painter->drawPolygon(tri);
+    }
+
+    painter->restore();
+}
+
+void drawProgressOverlay(QPainter* painter, const QStyleOptionViewItem& option, const int value, const int maximum)
+{
+    if (maximum <= 0 || value >= maximum) {
+        return;
+    }
+
+    painter->save();
+    painter->setRenderHint(QPainter::Antialiasing, true);
+
+    const QRectF cardRect = QRectF(option.rect).adjusted(1, 1, -1, -1);
+    QPainterPath clip;
+    clip.addRoundedRect(cardRect, kInstanceCardRadius, kInstanceCardRadius);
+    painter->setClipPath(clip);
+
+    QColor dim = option.palette.color(QPalette::Window);
+    dim.setAlphaF(0.58);
+    painter->fillRect(cardRect, dim);
+
+    const qreal barHeight = 5.0;
+    const qreal margin = 10.0;
+    // Keep the progress bar under the icon, above the label.
+    const qreal iconBottom = cardRect.top() + kInstanceCardPadding + kInstanceIconSize;
+    QRectF track(cardRect.left() + margin, iconBottom - margin - barHeight, cardRect.width() - 2.0 * margin, barHeight);
+
+    QColor trackColor = option.palette.color(QPalette::WindowText);
+    trackColor.setAlphaF(0.18);
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(trackColor);
+    painter->drawRoundedRect(track, 2.5, 2.5);
+
+    const qreal percent = qBound(0.0, static_cast<qreal>(value) / static_cast<qreal>(maximum), 1.0);
+    QRectF fill = track;
+    fill.setWidth(track.width() * percent);
+    painter->setBrush(QColor(0x2f, 0xbf, 0x71));
+    painter->drawRoundedRect(fill, 2.5, 2.5);
 
     painter->restore();
 }
@@ -135,24 +233,24 @@ void drawBadges(QPainter* painter, const QStyleOptionViewItem& option, BaseInsta
         pixmaps.append("checkupdate");
     }
 
-    static const int itemSide = 24;
-    static const int spacing = 1;
-    const int itemsPerRow = qMax(1, qFloor(double(option.rect.width() + spacing) / double(itemSide + spacing)));
+    static const int itemSide = 16;
+    static const int spacing = 3;
+    static const int inset = 6;
+    const int itemsPerRow = qMax(1, qFloor(double(option.rect.width() - 2 * inset + spacing) / double(itemSide + spacing)));
     const int rows = qCeil((double)pixmaps.size() / (double)itemsPerRow);
     QListIterator<QString> it(pixmaps);
     painter->translate(option.rect.topLeft());
     for (int y = 0; y < rows; ++y) {
         for (int x = 0; x < itemsPerRow; ++x) {
             if (!it.hasNext()) {
+                painter->translate(-option.rect.topLeft());
                 return;
             }
-            // FIXME: inject this.
             auto icon = QIcon::fromTheme(it.next());
-            // opt.icon.paint(painter, iconbox, Qt::AlignCenter, mode, state);
-            const QPixmap pixmap;
-            // itemSide
-            QRect badgeRect(option.rect.width() - x * itemSide + qMax(x - 1, 0) * spacing - itemSide,
-                            y * itemSide + qMax(y - 1, 0) * spacing, itemSide, itemSide);
+            // Keep badges top-left so they don't collide with play (bottom-right).
+            const int xPos = inset + x * (itemSide + spacing);
+            const int yPos = inset + y * (itemSide + spacing);
+            QRect badgeRect(xPos, yPos, itemSide, itemSide);
             icon.paint(painter, badgeRect, Qt::AlignCenter, mode, state);
         }
     }
@@ -169,9 +267,12 @@ static QSize viewItemTextSize(const QStyleOptionViewItem* option)
     textLayout.setFont(option->font);
     textLayout.setText(option->text);
     const int textMargin = style->pixelMetric(QStyle::PM_FocusFrameHMargin, option, option->widget) + 1;
-    QRect bounds(0, 0, 100 - 2 * textMargin, 600);
+    QRect bounds(0, 0, kInstanceCardWidth - 2 * textMargin - 2 * kInstanceCardPadding, 600);
     qreal height = 0, widthUsed = 0;
     viewItemTextLayout(textLayout, bounds.width(), height, widthUsed);
+    // Cap to two lines for cleaner Lunar-like labels.
+    const qreal lineHeight = option->fontMetrics.lineSpacing();
+    height = qMin(height, lineHeight * 2.0);
     const QSize size(qCeil(widthUsed), qCeil(height));
     return QSize(size.width() + 2 * textMargin, size.height());
 }
@@ -182,6 +283,7 @@ void ListViewDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opti
     initStyleOption(&opt, index);
     painter->save();
     painter->setClipRect(opt.rect);
+    painter->setRenderHint(QPainter::Antialiasing, true);
 
     opt.features |= QStyleOptionViewItem::WrapText;
     opt.text = index.data().toString();
@@ -190,79 +292,15 @@ void ListViewDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opti
 
     QStyle* style = opt.widget ? opt.widget->style() : QApplication::style();
 
-    // const int iconSize =  style->pixelMetric(QStyle::PM_IconViewIconSize);
-    const int iconSize = 48;
-    QRect iconbox = opt.rect;
+    drawInstanceCard(painter, opt);
+
+    const int iconSize = kInstanceIconSize;
     const int textMargin = style->pixelMetric(QStyle::PM_FocusFrameHMargin, 0, opt.widget) + 1;
-    QRect textRect = opt.rect;
-    QRect textHighlightRect = textRect;
-    // clip the decoration on top, remove width padding
-    textRect.adjust(textMargin, iconSize + textMargin + 5, -textMargin, 0);
+    QRect contentRect = opt.rect.adjusted(kInstanceCardPadding, kInstanceCardPadding, -kInstanceCardPadding, -kInstanceCardPadding);
+    QRect iconbox = contentRect;
+    QRect textRect = contentRect;
+    textRect.adjust(textMargin / 2, iconSize + textMargin + 2, -textMargin / 2, 0);
 
-    textHighlightRect.adjust(0, iconSize + 5, 0, 0);
-
-    // draw background
-    {
-        // FIXME: unused
-        // QSize textSize = viewItemTextSize ( &opt );
-        drawSelectionRect(painter, opt, textHighlightRect);
-        /*
-        QPalette::ColorGroup cg;
-        QStyleOptionViewItem opt2(opt);
-
-        if ((opt.widget && opt.widget->isEnabled()) || (opt.state & QStyle::State_Enabled))
-        {
-            if (!(opt.state & QStyle::State_Active))
-                cg = QPalette::Inactive;
-            else
-                cg = QPalette::Normal;
-        }
-        else
-        {
-            cg = QPalette::Disabled;
-        }
-        */
-        /*
-        opt2.palette.setCurrentColorGroup(cg);
-
-        // fill in background, if any
-
-
-        if (opt.backgroundBrush.style() != Qt::NoBrush)
-        {
-            QPointF oldBO = painter->brushOrigin();
-            painter->setBrushOrigin(opt.rect.topLeft());
-            painter->fillRect(opt.rect, opt.backgroundBrush);
-            painter->setBrushOrigin(oldBO);
-        }
-
-        drawSelectionRect(painter, opt2, textHighlightRect);
-        */
-
-        /*
-        if (opt.showDecorationSelected)
-        {
-            drawSelectionRect(painter, opt2, opt.rect);
-            drawFocusRect(painter, opt2, opt.rect);
-            // painter->fillRect ( opt.rect, opt.palette.brush ( cg, QPalette::Highlight ) );
-        }
-        else
-        {
-
-            // if ( opt.state & QStyle::State_Selected )
-            {
-                // QRect textRect = subElementRect ( QStyle::SE_ItemViewItemText,  opt,
-                // opt.widget );
-                // painter->fillRect ( textHighlightRect, opt.palette.brush ( cg,
-                // QPalette::Highlight ) );
-                drawSelectionRect(painter, opt2, textHighlightRect);
-                drawFocusRect(painter, opt2, textHighlightRect);
-            }
-        }
-        */
-    }
-
-    // icon mode and state, also used for badges
     QIcon::Mode mode = QIcon::Normal;
     if (!(opt.state & QStyle::State_Enabled))
         mode = QIcon::Disabled;
@@ -270,22 +308,16 @@ void ListViewDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opti
         mode = QIcon::Selected;
     QIcon::State state = opt.state & QStyle::State_Open ? QIcon::On : QIcon::Off;
 
-    // draw the icon
     {
         iconbox.setHeight(iconSize);
         opt.icon.paint(painter, iconbox, Qt::AlignCenter, mode, state);
     }
-    // set the text colors
+
     QPalette::ColorGroup cg = opt.state & QStyle::State_Enabled ? QPalette::Normal : QPalette::Disabled;
     if (cg == QPalette::Normal && !(opt.state & QStyle::State_Active))
         cg = QPalette::Inactive;
-    if (opt.state & QStyle::State_Selected) {
-        painter->setPen(opt.palette.color(cg, QPalette::HighlightedText));
-    } else {
-        painter->setPen(opt.palette.color(cg, QPalette::Text));
-    }
+    painter->setPen(opt.palette.color(cg, QPalette::Text));
 
-    // draw the text
     QTextOption textOption;
     textOption.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
     textOption.setTextDirection(opt.direction);
@@ -298,19 +330,19 @@ void ListViewDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opti
     qreal width, height;
     viewItemTextLayout(textLayout, textRect.width(), height, width);
 
-    const int lineCount = textLayout.lineCount();
+    const int maxLines = qMin(2, textLayout.lineCount());
 
     const QRect layoutRect = QStyle::alignedRect(opt.direction, opt.displayAlignment, QSize(textRect.width(), int(height)), textRect);
     const QPointF position = layoutRect.topLeft();
-    for (int i = 0; i < lineCount; ++i) {
+    for (int i = 0; i < maxLines; ++i) {
         const QTextLine line = textLayout.lineAt(i);
         line.draw(painter, position);
     }
 
-    // FIXME: this really has no business of being here. Make generic.
     auto instance = (BaseInstance*)index.data(InstanceList::InstancePointerRole).value<void*>();
     if (instance) {
         drawBadges(painter, opt, instance, mode, state);
+        drawPlayButton(painter, opt, instance);
     }
 
     drawProgressOverlay(painter, opt, index.data(InstanceViewRoles::ProgressValueRole).toInt(),
@@ -330,12 +362,10 @@ QSize ListViewDelegate::sizeHint(const QStyleOptionViewItem& option, const QMode
 
     QStyle* style = opt.widget ? opt.widget->style() : QApplication::style();
     const int textMargin = style->pixelMetric(QStyle::PM_FocusFrameHMargin, &option, opt.widget) + 1;
-    int height = 48 + textMargin * 2 + 5;  // TODO: turn constants into variables
+    int height = kInstanceIconSize + textMargin * 2 + 4 + 2 * kInstanceCardPadding;
     QSize szz = viewItemTextSize(&opt);
     height += szz.height();
-    // FIXME: maybe the icon items could scale and keep proportions?
-    QSize sz(100, height);
-    return sz;
+    return QSize(kInstanceCardWidth, height);
 }
 
 class NoReturnTextEdit : public QTextEdit {
@@ -371,10 +401,9 @@ void ListViewDelegate::updateEditorGeometry(QWidget* editor,
                                             const QStyleOptionViewItem& option,
                                             [[maybe_unused]] const QModelIndex& index) const
 {
-    const int iconSize = 48;
+    const int iconSize = kInstanceIconSize;
     QRect textRect = option.rect;
-    // QStyle *style = option.widget ? option.widget->style() : QApplication::style();
-    textRect.adjust(0, iconSize + 5, 0, 0);
+    textRect.adjust(kInstanceCardPadding, iconSize + kInstanceCardPadding + 2, -kInstanceCardPadding, -kInstanceCardPadding);
     editor->setGeometry(textRect);
 }
 
@@ -394,7 +423,6 @@ void ListViewDelegate::setModelData(QWidget* editor, QAbstractItemModel* model, 
     QString text = realEditor->toPlainText();
     text.replace(QChar('\n'), QChar(' '));
     text = text.trimmed();
-    // Prevent instance names longer than 128 chars
     text.truncate(128);
     if (text.size() != 0) {
         const auto before = model->data(index).toString();

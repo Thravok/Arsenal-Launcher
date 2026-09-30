@@ -47,6 +47,7 @@
 #include <QTimer>
 
 #include "minecraft/auth/MinecraftAccount.h"
+#include "ui/widgets/InstanceActionPanel.h"
 
 class LaunchController;
 class QToolButton;
@@ -57,7 +58,6 @@ class MinecraftInstance;
 class MinecraftLauncher;
 class BaseProfilerFactory;
 class InstanceView;
-class InstanceActionPanel;
 class KonamiCode;
 class InstanceTask;
 class Setting;
@@ -133,6 +133,8 @@ class MainWindow : public QMainWindow {
     void on_actionManageSkins_triggered();
 
     void on_actionManageAccounts_triggered();
+
+    void onHideNamesToggled(bool checked);
 
     void on_actionReportBug_triggered();
 
@@ -215,6 +217,8 @@ class MainWindow : public QMainWindow {
 #endif
 
     void refreshCurrentInstance();
+    void scheduleInstanceUiRefresh();
+    void refreshSelectedInstanceUi();
 
    private:
     void retranslateUi();
@@ -226,12 +230,17 @@ class MainWindow : public QMainWindow {
     void setInstanceActionsEnabled(bool enabled);
     void syncLaunchAccountGating();
     void syncInstancePanelHeader();
+    void refreshInstancePanelHome();
     void updateInstanceAccountButton();
     void applyInstanceAccountOverride(const QString& profileId);
     void clearInstanceAccountOverride();
     bool instanceChromeBarVisible() const;
     void enforceLegacyToolbarsHidden();
     void applyThemedActionIcons();
+    void updateHideNamesButtonAppearance();
+    void refreshMaskedAccountUi();
+    QList<InstanceStatusChip> buildInstanceStatusChips(MinecraftInstance* instance) const;
+    QString shortInstanceStatusLine(MinecraftInstance* instance) const;
 
     void runModalTask(Task* task);
     void instanceFromInstanceTask(InstanceTask* task);
@@ -248,12 +257,14 @@ class MainWindow : public QMainWindow {
     QHBoxLayout* m_instanceChromeLayout = nullptr;
     InstanceActionPanel* m_instanceActionPanel = nullptr;
     QToolButton* m_accountMenuButton = nullptr;
+    QToolButton* m_hideNamesButton = nullptr;
     QToolButton* m_foldersMenuButton = nullptr;
     QMenu* m_instanceAccountMenu = nullptr;
     KonamiCode* secretEventFilter = nullptr;
 
     MinecraftInstance* m_selectedInstance = nullptr;
     QString m_currentInstIcon;
+    bool m_instanceUiRefreshPending = false;
 
     // managed by the application object
     Task* m_versionLoadTask = nullptr;

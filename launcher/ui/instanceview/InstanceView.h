@@ -92,6 +92,8 @@ class InstanceView : public QAbstractItemView {
    signals:
     void droppedURLs(QList<QUrl> urls);
     void groupStateChanged(QString group, bool collapsed);
+    /** In-grid play/stop control was activated for this index. */
+    void playControlActivated(QModelIndex index);
 
    protected:
     bool isIndexHidden(const QModelIndex& index) const override;
@@ -99,6 +101,7 @@ class InstanceView : public QAbstractItemView {
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void mouseDoubleClickEvent(QMouseEvent* event) override;
+    void leaveEvent(QEvent* event) override;
     void paintEvent(QPaintEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
 
@@ -118,12 +121,12 @@ class InstanceView : public QAbstractItemView {
     visibilityFunction m_fVisibility;
 
     // geometry
-    int m_leftMargin = 5;
-    int m_rightMargin = 5;
-    int m_bottomMargin = 5;
-    int m_categoryMargin = 5;
-    int m_spacing = 5;
-    int m_itemWidth = 100;
+    int m_leftMargin = 10;
+    int m_rightMargin = 10;
+    int m_bottomMargin = 10;
+    int m_categoryMargin = 8;
+    int m_spacing = 16;
+    int m_itemWidth = 120;
     int m_currentItemsPerRow = -1;
     int m_currentCursorColumn = -1;
     mutable QCache<int, QRect> m_geometryCache;
@@ -131,6 +134,7 @@ class InstanceView : public QAbstractItemView {
     // point where the currently active mouse action started in geometry coordinates
     QPoint m_pressedPosition;
     QPersistentModelIndex m_pressedIndex;
+    QPersistentModelIndex m_hoverIndex;
     bool m_pressedAlreadySelected;
     VisualGroup* m_pressedCategory;
     QItemSelectionModel::SelectionFlag m_ctrlDragSelectionFlag;

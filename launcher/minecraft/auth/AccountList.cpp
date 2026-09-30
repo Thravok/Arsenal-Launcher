@@ -268,6 +268,13 @@ void AccountList::onListChanged()
     emit listChanged();
 }
 
+void AccountList::refreshDisplayNames()
+{
+    if (count() <= 0)
+        return;
+    emit dataChanged(index(0, ProfileNameColumn), index(count() - 1, ProfileNameColumn), { Qt::DisplayRole });
+}
+
 void AccountList::onDefaultAccountChanged()
 {
     if (m_autosave)
@@ -337,7 +344,7 @@ QVariant AccountList::data(const QModelIndex& index, int role) const
         case Qt::DisplayRole:
             switch (index.column()) {
                 case ProfileNameColumn:
-                    return account->profileName();
+                    return account->displayName();
                 case TypeColumn: {
                     switch (account->accountType()) {
                         case AccountType::MSA: {

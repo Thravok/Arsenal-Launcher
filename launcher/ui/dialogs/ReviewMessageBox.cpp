@@ -82,7 +82,11 @@ void ReviewMessageBox::appendResource(ResourceInformation&& info)
     auto itemTop = new QTreeWidgetItem(ui->modTreeWidget->topLevelItem(0));
     itemTop->setCheckState(0, info.enabled ? Qt::CheckState::Checked : Qt::CheckState::Unchecked);
     itemTop->setText(0, info.name);
-    if (!info.enabled) {
+    const QString key = info.deselectKey.isEmpty() ? info.name : info.deselectKey;
+    itemTop->setData(0, Qt::UserRole, key);
+    if (!info.tooltip.isEmpty()) {
+        itemTop->setToolTip(0, info.tooltip);
+    } else if (!info.enabled) {
         itemTop->setToolTip(0, tr("Mod was disabled as it may be already installed."));
     }
 
@@ -111,9 +115,16 @@ void ReviewMessageBox::appendResource(ResourceInformation&& info)
         m_deps << itemTop;
     }
 
-    auto versionTypeItem = new QTreeWidgetItem(itemTop);
-    versionTypeItem->setText(0, tr("Version Type: %1").arg(info.version_type));
-    versionTypeItem->setData(0, Qt::UserRole, info.version_type);
+    if (!info.version.isEmpty()) {
+        auto versionItem = new QTreeWidgetItem(itemTop);
+        versionItem->setText(0, tr("Version: %1").arg(info.version));
+        versionItem->setData(0, Qt::UserRole, info.version);
+    }
+    if (!info.version_type.isEmpty()) {
+        auto versionTypeItem = new QTreeWidgetItem(itemTop);
+        versionTypeItem->setText(0, tr("Version Type: %1").arg(info.version_type));
+        versionTypeItem->setData(0, Qt::UserRole, info.version_type);
+    }
 
     itemTop->setExpanded(true);
 }
@@ -126,7 +137,8 @@ auto ReviewMessageBox::deselectedResources() -> QStringList
 
     for (int i = 1; item != nullptr; ++i) {
         if (item->checkState(0) == Qt::CheckState::Unchecked) {
-            list.append(item->text(0));
+            const auto key = item->data(0, Qt::UserRole).toString();
+            list.append(key.isEmpty() ? item->text(0) : key);
         }
 
         item = ui->modTreeWidget->topLevelItem(0)->child(i);

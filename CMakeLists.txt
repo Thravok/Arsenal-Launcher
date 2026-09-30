@@ -203,6 +203,38 @@ set(Launcher_BUILD_PLATFORM "unknown" CACHE STRING "A short string identifying t
 # Github repo URL with releases for updater
 set(Launcher_UPDATER_GITHUB_REPO "https://github.com/Thravok/Arsenal-Launcher" CACHE STRING "Base github URL for the updater.")
 
+# Existing build dirs may still cache Prism (or pre-rename HackerMC) endpoints from
+# before the rebrand. CMake CACHE STRING defaults are sticky — migrate them here so
+# "Check for updates" / Sparkle never offers Prism builds over Arsenal.
+function(arsenal_migrate_cached_url var_name prism_regex arsenal_value)
+    if(DEFINED CACHE{${var_name}} AND "${${var_name}}" MATCHES "${prism_regex}")
+        message(STATUS "Migrating cached ${var_name} away from Prism/legacy URL -> ${arsenal_value}")
+        set(${var_name} "${arsenal_value}" CACHE STRING "" FORCE)
+    endif()
+endfunction()
+
+arsenal_migrate_cached_url(Launcher_UPDATER_GITHUB_REPO
+    "PrismLauncher|HackerMC"
+    "https://github.com/Thravok/Arsenal-Launcher")
+arsenal_migrate_cached_url(Launcher_WIKI_URL
+    "prismlauncher\\.org"
+    "https://github.com/Thravok/Arsenal-Launcher#readme")
+arsenal_migrate_cached_url(Launcher_HELP_URL
+    "prismlauncher\\.org"
+    "https://github.com/Thravok/Arsenal-Launcher/wiki/%1")
+arsenal_migrate_cached_url(Launcher_BUG_TRACKER_URL
+    "PrismLauncher|HackerMC"
+    "https://github.com/Thravok/Arsenal-Launcher/issues")
+arsenal_migrate_cached_url(Launcher_MATRIX_URL
+    "prismlauncher\\.org"
+    "https://github.com/Thravok/Arsenal-Launcher/issues")
+arsenal_migrate_cached_url(Launcher_DISCORD_URL
+    "prismlauncher\\.org"
+    "https://github.com/Thravok/Arsenal-Launcher/issues")
+arsenal_migrate_cached_url(Launcher_SUBREDDIT_URL
+    "prismlauncher\\.org"
+    "https://github.com/Thravok/Arsenal-Launcher/issues")
+
 # Name to help updater identify valid artifacts
 set(Launcher_BUILD_ARTIFACT "" CACHE STRING "Artifact name to help the updater identify valid artifacts.")
 
@@ -405,8 +437,22 @@ if(UNIX AND APPLE)
     set(MACOSX_BUNDLE_LONG_VERSION_STRING "${Launcher_VERSION_NAME}")
     set(MACOSX_BUNDLE_ICON_FILE ${Launcher_Name}.icns)
     set(MACOSX_BUNDLE_COPYRIGHT "${Launcher_Copyright_Mac}")
-    set(MACOSX_SPARKLE_UPDATE_PUBLIC_KEY "" CACHE STRING "Public key for Sparkle update feed (generate with Sparkle's generate_keys)")
+    # Arsenal Sparkle Ed25519 public key (--account arsenal). Private key stays in
+    # Keychain / CI secrets only — never commit arsenal-sparkle-ed25519.pem.
+    set(Launcher_SPARKLE_PUBLIC_KEY "kO9I9VfQ/cFPNpD0MjsarZrftyfIsBnwU3jfqHu4S/g=")
+    set(MACOSX_SPARKLE_UPDATE_PUBLIC_KEY "${Launcher_SPARKLE_PUBLIC_KEY}" CACHE STRING "Public key for Sparkle update feed (generate with Sparkle's generate_keys)")
     set(MACOSX_SPARKLE_UPDATE_FEED_URL "https://github.com/Thravok/Arsenal-Launcher/releases/latest/download/appcast.xml" CACHE STRING "URL for Sparkle update feed")
+
+    # Prism's Sparkle feed + Ed25519 key must not remain in Arsenal builds.
+    arsenal_migrate_cached_url(MACOSX_SPARKLE_UPDATE_FEED_URL
+        "prismlauncher\\.org"
+        "https://github.com/Thravok/Arsenal-Launcher/releases/latest/download/appcast.xml")
+    if(DEFINED CACHE{MACOSX_SPARKLE_UPDATE_PUBLIC_KEY} AND (
+       MACOSX_SPARKLE_UPDATE_PUBLIC_KEY STREQUAL "" OR
+       MACOSX_SPARKLE_UPDATE_PUBLIC_KEY STREQUAL "v55ZWWD6QlPoXGV6VLzOTZxZUggWeE51X8cRQyQh6vA="))
+        message(STATUS "Migrating Sparkle public key to Arsenal key")
+        set(MACOSX_SPARKLE_UPDATE_PUBLIC_KEY "${Launcher_SPARKLE_PUBLIC_KEY}" CACHE STRING "Public key for Sparkle update feed (generate with Sparkle's generate_keys)" FORCE)
+    endif()
 
     set(MACOSX_SPARKLE_DOWNLOAD_URL "https://github.com/sparkle-project/Sparkle/releases/download/2.9.6/Sparkle-2.9.6.tar.xz" CACHE STRING "URL to Sparkle release archive")
     set(MACOSX_SPARKLE_SHA256 "52bf9e88cdd972fc0c81501377a880e90d47031bd8ca5462488f843e2609e192" CACHE STRING "SHA256 checksum for Sparkle release archive")

@@ -8,7 +8,8 @@
 
 namespace HackClients {
 
-/** Downloads Baritone into an existing instance's mods folder. */
+/** Downloads Baritone into an existing instance's mods folder.
+ *  Uses Meteor's Baritone fork when meteor-client is present; otherwise Fabric standalone. */
 class BaritoneModInstallTask final : public Task {
     Q_OBJECT
    public:
@@ -20,6 +21,8 @@ class BaritoneModInstallTask final : public Task {
     void executeTask() override;
 
    private:
+    bool downloadMeteorBaritone(const QString& destPath);
+
     QString m_modsDir;
     QString m_minecraftVersion;
     QString m_mavenVersion;

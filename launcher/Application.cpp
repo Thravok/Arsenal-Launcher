@@ -56,12 +56,14 @@
 #include "ui/dialogs/ProgressDialog.h"
 #include "ui/instanceview/AccessibleInstanceView.h"
 
+#include "icons/ThemedSvgIcon.h"
+#include "minecraft/NameProtectConfig.h"
+#include "minecraft/auth/TheAlteningConfig.h"
 #include "ui/pages/BasePageProvider.h"
 #include "ui/pages/global/APIPage.h"
 #include "ui/pages/global/AccountListPage.h"
 #include "ui/pages/global/AlteningSettingsPage.h"
-#include "icons/ThemedSvgIcon.h"
-#include "minecraft/auth/TheAlteningConfig.h"
+#include "ui/pages/global/NameProtectPage.h"
 
 #include <QGuiApplication>
 #include "ui/pages/global/AppearancePage.h"
@@ -610,6 +612,7 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
         qInfo() << "Compiled for               :" << BuildConfig.systemID();
         qInfo() << "Compiled by                :" << BuildConfig.compilerID();
         qInfo() << "Build Artifact             :" << BuildConfig.BUILD_ARTIFACT;
+        qInfo() << "Public release             :" << (BuildConfig.isPublicRelease() ? "Yes" : "No");
         qInfo() << "Updates Enabled            :" << (updaterEnabled() ? "Yes" : "No");
         if (!adjustedBy.isEmpty()) {
             qInfo() << "Work dir before adjustment :" << origcwdPath;
@@ -722,6 +725,13 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
         // Editors
         m_settings->registerSetting("JsonEditor", QString());
         m_settings->registerSetting(TheAltening::ApiKeySettingName, QString());
+
+        // Name Protect (client-side aliases + launcher privacy)
+        m_settings->registerSetting(NameProtect::EnabledSetting, true);
+        m_settings->registerSetting(NameProtect::SelfAliasSetting, QStringLiteral("Hidden"));
+        m_settings->registerSetting(NameProtect::RulesSetting, QStringLiteral("{}"));
+        m_settings->registerSetting(NameProtect::MaskAccountsSetting, false);
+        m_settings->registerSetting(NameProtect::ManageFromLauncherSetting, true);
 
         // Language
         m_settings->registerSetting("Language", QString());
@@ -919,6 +929,7 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
             m_globalSettingsProvider->addPage<JavaPage>();
             m_globalSettingsProvider->addPage<AccountListPage>();
             m_globalSettingsProvider->addPage<AlteningSettingsPage>();
+            m_globalSettingsProvider->addPage<NameProtectPage>();
             m_globalSettingsProvider->addPage<APIPage>();
             m_globalSettingsProvider->addPage<ExternalToolsPage>();
             m_globalSettingsProvider->addPage<ProxyPage>();
@@ -968,8 +979,8 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
     m_themeManager = std::make_unique<ThemeManager>();
 
     // One-time: switch inherited Prism/MultiMC icon themes to Lucide (Arsenal designated set).
-    const bool lucideIconsMigrated = settings()->get("ArsenalLucideIconsMigrated").toBool()
-        || settings()->get("HackerMCLucideIconsMigrated").toBool();
+    const bool lucideIconsMigrated =
+        settings()->get("ArsenalLucideIconsMigrated").toBool() || settings()->get("HackerMCLucideIconsMigrated").toBool();
     if (!lucideIconsMigrated) {
         settings()->set("IconTheme", QStringLiteral("lucide"));
         settings()->set("ArsenalLucideIconsMigrated", true);
@@ -1398,23 +1409,26 @@ void Application::performMainStartupAction()
             return;
         }
     }
-    if (!m_mainWindow) {
-        // normal main window
-        showMainWindow(false);
-        qDebug() << "<> Main window shown.";
-    }
-
-    // initialize the updater
-    if (updaterEnabled()) {
+    // Initialize the updater before the main window so MainWindow can connect to
+    // canCheckForUpdatesChanged. Only public (tagged) releases get an in-place updater.
+    if (!m_updater && updaterEnabled() && BuildConfig.isPublicRelease()) {
         qDebug() << "Initializing updater";
 #ifdef Q_OS_MAC
 #if defined(SPARKLE_ENABLED)
         m_updater.reset(new MacSparkleUpdater());
 #endif
 #else
-        m_updater.reset(new PrismExternalUpdater(m_mainWindow, m_rootPath, m_dataPath));
+        m_updater.reset(new PrismExternalUpdater(nullptr, m_rootPath, m_dataPath));
 #endif
         qDebug() << "<> Updater started.";
+    } else if (updaterEnabled() && !BuildConfig.isPublicRelease()) {
+        qDebug() << "Skipping in-place updater (non-public / source build:" << BuildConfig.printableVersionString() << ")";
+    }
+
+    if (!m_mainWindow) {
+        // normal main window
+        showMainWindow(false);
+        qDebug() << "<> Main window shown.";
     }
 
     {  // delete instances tmp dirctory
@@ -1717,7 +1731,12 @@ MainWindow* Application::showMainWindow(bool minimized)
     } else {
         m_mainWindow = new MainWindow();
         m_mainWindow->restoreState(QByteArray::fromBase64(APPLICATION->settings()->get("MainWindowState").toString().toUtf8()));
-        m_mainWindow->restoreGeometry(QByteArray::fromBase64(APPLICATION->settings()->get("MainWindowGeometry").toString().toUtf8()));
+        const QString savedGeometry = APPLICATION->settings()->get("MainWindowGeometry").toString();
+        if (savedGeometry.isEmpty()) {
+            m_mainWindow->resize(1180, 740);
+        } else {
+            m_mainWindow->restoreGeometry(QByteArray::fromBase64(savedGeometry.toUtf8()));
+        }
         m_mainWindow->reconcileLayoutWithSavedState();
 
         if (minimized) {
@@ -2064,8 +2083,35 @@ void Application::triggerUpdateCheck()
         qDebug() << "Checking for updates.";
         m_updater->setBetaAllowed(false);  // There are no other channels than stable
         m_updater->checkForUpdates();
-    } else {
+        return;
+    }
+
+    if (!updaterEnabled()) {
         qDebug() << "Updater not available.";
+        return;
+    }
+
+    if (BuildConfig.isPublicRelease()) {
+        // Updater infrastructure is enabled but the platform updater failed to start.
+        qWarning() << "Updater enabled for public release but no updater instance is available.";
+        return;
+    }
+
+    // Source / branch / non-tagged builds cannot use in-place updates.
+    qDebug() << "Update check requested on non-public build:" << BuildConfig.printableVersionString();
+    QMessageBox msgBox(m_mainWindow);
+    msgBox.setIcon(QMessageBox::Information);
+    msgBox.setWindowTitle(tr("Development Build"));
+    msgBox.setText(tr("You are running a development build of %1.").arg(BuildConfig.LAUNCHER_DISPLAYNAME));
+    msgBox.setInformativeText(tr("Version %1 (channel: %2) is not a public release, so automatic updates are not available.\n\n"
+                                 "Download official builds from the releases page.")
+                                  .arg(BuildConfig.printableVersionString(), BuildConfig.VERSION_CHANNEL));
+    auto* openReleases = msgBox.addButton(tr("Open Releases"), QMessageBox::AcceptRole);
+    msgBox.addButton(QMessageBox::Cancel);
+    msgBox.exec();
+    if (msgBox.clickedButton() == openReleases) {
+        const QUrl releasesUrl(BuildConfig.UPDATER_GITHUB_REPO + QStringLiteral("/releases"));
+        DesktopServices::openUrl(releasesUrl);
     }
 }
 

@@ -104,7 +104,7 @@ NewInstanceDialog::NewInstanceDialog(const QString& initialGroup,
     // move this below.
     m_buttons = new QDialogButtonBox(QDialogButtonBox::Help | QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
 
-    m_container = new PageContainer(this, QStringLiteral("hackclients"), this);
+    m_container = new PageContainer(this, QStringLiteral("hackclients-anarchy"), this);
     m_container->useSidebarStyle(false);
     m_container->setSizePolicy(QSizePolicy::Policy::Preferred, QSizePolicy::Policy::Expanding);
     m_container->layout()->setContentsMargins(0, 0, 0, 0);
@@ -193,7 +193,9 @@ QList<BasePage*> NewInstanceDialog::getPages()
 
     m_importPage = new ImportPage(this);
 
-    pages.append(new HackClientsPage(this));
+    auto* hackClients = new HackClientsPageContext(this);
+    for (const auto category : HackClients::hackClientCategoryOrder())
+        pages.append(new HackClientsPage(this, category, hackClients));
     pages.append(new CustomPage(this));
     pages.append(m_importPage);
     pages.append(new AtlPage(this));

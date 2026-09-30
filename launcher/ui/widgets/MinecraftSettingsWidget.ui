@@ -24,13 +24,41 @@
     <number>0</number>
    </property>
    <item>
-    <widget class="QCommandLinkButton" name="openGlobalSettingsButton">
-     <property name="text">
-      <string>Open &amp;Global Settings</string>
-     </property>
-     <property name="description">
-      <string>The settings here are overrides for global settings.</string>
-     </property>
+    <widget class="QWidget" name="openGlobalSettingsRow">
+     <layout class="QVBoxLayout" name="openGlobalSettingsLayout">
+      <property name="spacing">
+       <number>2</number>
+      </property>
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>8</number>
+      </property>
+      <item>
+       <widget class="QPushButton" name="openGlobalSettingsButton">
+        <property name="text">
+         <string>Open &amp;Global Settings</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="openGlobalSettingsHint">
+        <property name="text">
+         <string>The settings here are overrides for global settings.</string>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </widget>
    </item>
    <item>

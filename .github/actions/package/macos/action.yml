@@ -32,8 +32,12 @@ inputs:
     description: Password used for notarizing macOS builds
     required: false
   sparkle-ed25519-key:
-    description: Private key for signing Sparkle updates
+    description: Private key for signing Sparkle updates (Sparkle seed from generate_keys -x)
     required: false
+  release-tag:
+    description: Git tag for this build (e.g. v1.0.0). When set, generates appcast.xml for GitHub Releases.
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -114,25 +118,49 @@ runs:
             -ov -format ULMO \
             "../Arsenal.dmg"
 
-    - name: Make Sparkle signature
+    - name: Make Sparkle signature and appcast
       shell: bash
+      env:
+        RELEASE_TAG: ${{ inputs.release-tag }}
+        SPARKLE_KEY: ${{ inputs.sparkle-ed25519-key }}
       run: |
-        if [ '${{ inputs.sparkle-ed25519-key }}' != '' ]; then
-          echo '${{ inputs.sparkle-ed25519-key }}' > ed25519-priv.pem
-          signature_zip=$(/opt/homebrew/opt/openssl@3/bin/openssl pkeyutl -sign -rawin -in ${{ github.workspace }}/Arsenal.zip -inkey ed25519-priv.pem | openssl base64 | tr -d \\n)
-          signature_dmg=$(/opt/homebrew/opt/openssl@3/bin/openssl pkeyutl -sign -rawin -in ${{ github.workspace }}/Arsenal.dmg -inkey ed25519-priv.pem | openssl base64 | tr -d \\n) 
-          rm ed25519-priv.pem
-          cat >> $GITHUB_STEP_SUMMARY << EOF
+        SPARKLE_BIN="${{ github.workspace }}/build/frameworks/Sparkle/bin"
+        if [ ! -x "$SPARKLE_BIN/sign_update" ]; then
+          echo ":warning: Sparkle tools not found at $SPARKLE_BIN" >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+        fi
+
+        if [ -z "$SPARKLE_KEY" ]; then
+          cat >> "$GITHUB_STEP_SUMMARY" << EOF
+        ### Artifact Information :information_source:
+        - :warning: Sparkle Signature (ed25519): No private key available (likely a pull request or fork)
+        EOF
+          exit 0
+        fi
+
+        printf '%s' "$SPARKLE_KEY" > ed25519-priv.pem
+        # Sparkle exports a base64 seed — use sign_update, not OpenSSL PEM APIs.
+        signature_zip=$("$SPARKLE_BIN/sign_update" --ed-key-file ed25519-priv.pem -p "${{ github.workspace }}/Arsenal.zip")
+        signature_dmg=$("$SPARKLE_BIN/sign_update" --ed-key-file ed25519-priv.pem -p "${{ github.workspace }}/Arsenal.dmg")
+
+        cat >> "$GITHUB_STEP_SUMMARY" << EOF
         ### Artifact Information :information_source:
         - :memo: Sparkle Signature (ed25519): \`$signature_zip\` (ZIP)
         - :memo: Sparkle Signature (ed25519): \`$signature_dmg\` (DMG)
         EOF
-        else
-          cat >> $GITHUB_STEP_SUMMARY << EOF
-        ### Artifact Information :information_source:
-        - :warning: Sparkle Signature (ed25519): No private key available (likely a pull request or fork)
-        EOF
+
+        if [ -n "$RELEASE_TAG" ]; then
+          chmod +x "${{ github.workspace }}/scripts/macos/generate_sparkle_appcast.sh"
+          "${{ github.workspace }}/scripts/macos/generate_sparkle_appcast.sh" \
+            --dmg "${{ github.workspace }}/Arsenal.dmg" \
+            --tag "$RELEASE_TAG" \
+            --key ed25519-priv.pem \
+            --sparkle-bin "$SPARKLE_BIN" \
+            --out "${{ github.workspace }}/appcast.xml"
+          echo "- :satellite: Generated \`appcast.xml\` for tag \`$RELEASE_TAG\`" >> "$GITHUB_STEP_SUMMARY"
         fi
+
+        rm -f ed25519-priv.pem
 
     - name: Upload binary tarball
       uses: actions/upload-artifact@v7
@@ -145,3 +173,11 @@ runs:
       with:
         name: Arsenal-${{ inputs.artifact-name }}-${{ inputs.version }}-${{ inputs.build-type }}.dmg
         path: Arsenal.dmg
+
+    - name: Upload Sparkle appcast
+      if: ${{ inputs.release-tag != '' }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: Arsenal-${{ inputs.artifact-name }}-appcast
+        path: appcast.xml
+        if-no-files-found: warn

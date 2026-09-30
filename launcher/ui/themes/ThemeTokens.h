@@ -44,15 +44,19 @@ struct Tokens {
     QColor highlightedText;
     QColor placeholderText;
     QColor danger;
+    QColor dangerHover;
     QColor success;
+    QColor successHover;
     QColor fade;
     double fadeAmount = 0.5;
 
-    /** Semi-transparent glass panel fill (content wells / grid). */
+    /** Recessed well behind cards / page content. */
+    QColor glassWell;
+    /** Mid glass fill for inputs and inset controls. */
     QColor glassFill;
-    /** Semi-transparent elevated glass (panels, menus, chrome). */
+    /** Elevated glass (sidebars, menus, rails, chrome). */
     QColor glassElevated;
-    /** Hairline glass border (typically white/black at low alpha). */
+    /** Visible glass edge so regions don't melt into each other. */
     QColor glassBorder;
     /** Specular / top-edge highlight for glass surfaces. */
     QColor glassHighlight;

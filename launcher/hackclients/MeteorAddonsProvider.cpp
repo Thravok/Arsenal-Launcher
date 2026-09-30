@@ -101,6 +101,8 @@ bool MeteorAddonsProvider::parse(const QByteArray& data)
         if (auto repo = obj.value("repo").toObject(); !repo.isEmpty()) {
             entry.repoOwner = repo.value("owner").toString();
             entry.repoName = repo.value("name").toString();
+            entry.stars = repo.value("stars").toInt(0);
+            entry.downloads = repo.value("downloads").toInt(0);
         }
 
         if (auto links = obj.value("links").toObject(); !links.isEmpty()) {

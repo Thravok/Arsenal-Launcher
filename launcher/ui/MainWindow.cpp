@@ -41,6 +41,8 @@
 #include "Application.h"
 #include "BuildConfig.h"
 #include "FileSystem.h"
+#include "hackclients/ArsenalUtilitiesInstall.h"
+#include "minecraft/NameProtectConfig.h"
 
 #include "MainWindow.h"
 #include "ui_MainWindow.h"
@@ -75,6 +77,7 @@
 #include <QToolButton>
 #include <QWidget>
 #include <QWidgetAction>
+#include <algorithm>
 #include <memory>
 
 #include <BaseInstance.h>
@@ -222,16 +225,16 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
     m_instanceGridFrame = new QFrame(ui->centralWidget);
     m_instanceGridFrame->setObjectName(QStringLiteral("instanceGridFrame"));
     auto* gridLayout = new QVBoxLayout(m_instanceGridFrame);
-    gridLayout->setContentsMargins(12, 12, 12, 12);
-    gridLayout->setSpacing(0);
+    gridLayout->setContentsMargins(12, 10, 10, 10);
+    gridLayout->setSpacing(8);
 
     m_instanceChromeBar = new QFrame(m_instanceGridFrame);
     m_instanceChromeBar->setObjectName(QStringLiteral("instanceChromeBar"));
     m_instanceChromeBar->setVisible(instanceChromeBarVisible());
 
     m_instanceChromeLayout = new QHBoxLayout(m_instanceChromeBar);
-    m_instanceChromeLayout->setContentsMargins(0, 0, 0, 8);
-    m_instanceChromeLayout->setSpacing(6);
+    m_instanceChromeLayout->setContentsMargins(4, 4, 4, 4);
+    m_instanceChromeLayout->setSpacing(8);
 
     auto createChromeActionButton = [this](QAction* action) {
         auto* button = new QToolButton(m_instanceChromeBar);
@@ -241,6 +244,33 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         button->setFocusPolicy(Qt::NoFocus);
         return button;
     };
+
+    {
+        auto* brand = new QFrame(m_instanceChromeBar);
+        brand->setObjectName(QStringLiteral("chromeBrand"));
+        auto* brandLayout = new QHBoxLayout(brand);
+        brandLayout->setContentsMargins(6, 0, 10, 0);
+        brandLayout->setSpacing(8);
+
+        auto* brandIcon = new QLabel(brand);
+        brandIcon->setObjectName(QStringLiteral("chromeBrandIcon"));
+        brandIcon->setFixedSize(20, 20);
+        brandIcon->setScaledContents(true);
+        brandIcon->setPixmap(APPLICATION->getThemedIcon(QStringLiteral("logo")).pixmap(20, 20));
+
+        auto* brandLabel = new QLabel(BuildConfig.LAUNCHER_DISPLAYNAME, brand);
+        brandLabel->setObjectName(QStringLiteral("chromeBrandLabel"));
+
+        brandLayout->addWidget(brandIcon);
+        brandLayout->addWidget(brandLabel);
+        m_instanceChromeLayout->addWidget(brand);
+
+        auto* brandSeparator = new QFrame(m_instanceChromeBar);
+        brandSeparator->setObjectName(QStringLiteral("instanceChromeSeparator"));
+        brandSeparator->setFrameShape(QFrame::VLine);
+        brandSeparator->setFrameShadow(QFrame::Plain);
+        m_instanceChromeLayout->addWidget(brandSeparator);
+    }
 
     m_instanceChromeLayout->addWidget(createChromeActionButton(ui->actionAddInstance));
 
@@ -324,20 +354,21 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
     ui->horizontalLayout->addWidget(m_instanceGridFrame, 1);
 
     m_instanceActionPanel = new InstanceActionPanel(ui->centralWidget);
-    m_instanceActionPanel->setEnabled(false);
     m_instanceActionPanel->iconButton()->setToolTip(ui->actionChangeInstIcon->toolTip());
     m_instanceActionPanel->nameButton()->setToolTip(ui->actionRenameInstance->toolTip());
     m_instanceActionPanel->accountMenuButton()->setToolTip(
         tr("Choose which account launches this instance. Pick an account to pin it to this instance, or use the global default from the "
            "instance list header."));
-    m_instanceActionPanel->setSecondaryActions({ ui->actionEditInstance,
-                                                 ui->actionChangeInstGroup,
-                                                 ui->actionViewSelectedInstFolder,
-                                                 ui->actionExportInstance,
-                                                 ui->actionCopyInstance,
-                                                 ui->actionDeleteInstance,
-                                                 ui->actionCreateInstanceShortcut });
+    m_instanceActionPanel->setAddInstanceAction(ui->actionAddInstance);
+    m_instanceActionPanel->setHomeBrand(APPLICATION->getThemedIcon(QStringLiteral("logo")), BuildConfig.LAUNCHER_DISPLAYNAME,
+                                        tr("Select a client, or add a new one."));
+    m_instanceActionPanel->setSecondaryActions(ui->actionEditInstance,
+                                               { ui->actionChangeInstGroup, ui->actionViewSelectedInstFolder, ui->actionExportInstance,
+                                                 ui->actionCopyInstance, ui->actionDeleteInstance, ui->actionCreateInstanceShortcut });
+    m_instanceActionPanel->setDetailMode(false);
+    connect(m_instanceActionPanel, &InstanceActionPanel::recentInstanceRequested, this, &MainWindow::setSelectedInstanceById);
     ui->horizontalLayout->addWidget(m_instanceActionPanel);
+    refreshInstancePanelHome();
 
     // Togglable status bar
     {
@@ -356,6 +387,16 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
     }
     // start instance when double-clicked
     connect(view, &InstanceView::activated, this, &MainWindow::instanceActivated);
+    connect(view, &InstanceView::playControlActivated, this, [this](const QModelIndex&) {
+        if (!m_selectedInstance) {
+            return;
+        }
+        if (m_selectedInstance->isRunning()) {
+            on_actionKillInstance_triggered();
+        } else {
+            on_actionLaunchInstance_triggered();
+        }
+    });
 
     // track the selection -- update the instance toolbar
     connect(view->selectionModel(), &QItemSelectionModel::currentChanged, this, &MainWindow::instanceChanged);
@@ -369,6 +410,23 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
     // handle newly added instances
     connect(APPLICATION->instances(), &InstanceList::instanceSelectRequest, this, &MainWindow::instanceSelectRequest);
 
+    // Keep the idle desk recent list fresh when instances change
+    connect(APPLICATION->instances(), &InstanceList::dataChanged, this, [this]() {
+        if (!m_selectedInstance) {
+            refreshInstancePanelHome();
+        }
+    });
+    connect(APPLICATION->instances(), &InstanceList::rowsInserted, this, [this]() {
+        if (!m_selectedInstance) {
+            refreshInstancePanelHome();
+        }
+    });
+    connect(APPLICATION->instances(), &InstanceList::rowsRemoved, this, [this]() {
+        if (!m_selectedInstance) {
+            refreshInstancePanelHome();
+        }
+    });
+
     // When the global settings page closes, we want to know about it and update our state
     connect(APPLICATION, &Application::globalSettingsApplied, this, &MainWindow::globalSettingsClosed);
 
@@ -379,6 +437,18 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
 
     // Use undocumented property... https://stackoverflow.com/questions/7121718/create-a-scrollbar-in-a-submenu-qt
     ui->accountsMenu->setStyleSheet("QMenu { menu-scrollable: 1; }");
+
+    m_hideNamesButton = new QToolButton(m_instanceChromeBar);
+    m_hideNamesButton->setObjectName(QStringLiteral("hideNamesButton"));
+    m_hideNamesButton->setCheckable(true);
+    m_hideNamesButton->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    m_hideNamesButton->setText(tr("Hide names"));
+    m_hideNamesButton->setToolTip(
+        tr("Obfuscate all account usernames in the launcher UI (accounts menu, lists, instance picker)."));
+    m_hideNamesButton->setChecked(APPLICATION->settings()->get(NameProtect::MaskAccountsSetting).toBool());
+    m_instanceChromeLayout->addWidget(m_hideNamesButton);
+    connect(m_hideNamesButton, &QToolButton::toggled, this, &MainWindow::onHideNamesToggled);
+    updateHideNamesButtonAppearance();
 
     m_accountMenuButton = new QToolButton(m_instanceChromeBar);
     m_accountMenuButton->setObjectName(QStringLiteral("accountMenuButton"));
@@ -470,9 +540,13 @@ void MainWindow::keyReleaseEvent(QKeyEvent* event)
 void MainWindow::retranslateUi()
 {
     if (m_selectedInstance) {
-        m_statusLeft->setText(m_selectedInstance->getStatusbarDescription());
+        m_statusLeft->setText(shortInstanceStatusLine(m_selectedInstance));
+        if (m_instanceActionPanel) {
+            m_instanceActionPanel->setStatusChips(buildInstanceStatusChips(m_selectedInstance));
+        }
     } else {
         m_statusLeft->setText(tr("No instance selected"));
+        refreshInstancePanelHome();
     }
 
     ui->retranslateUi(this);
@@ -488,12 +562,17 @@ void MainWindow::retranslateUi()
     if (m_instanceActionPanel) {
         m_instanceActionPanel->iconButton()->setToolTip(ui->actionChangeInstIcon->toolTip());
         m_instanceActionPanel->nameButton()->setToolTip(ui->actionRenameInstance->toolTip());
+        m_instanceActionPanel->setHomeBrand(APPLICATION->getThemedIcon(QStringLiteral("logo")), BuildConfig.LAUNCHER_DISPLAYNAME,
+                                            tr("Select a client, or add a new one."));
+        m_instanceActionPanel->setAddInstanceAction(ui->actionAddInstance);
     }
 
     if (m_foldersMenuButton) {
         m_foldersMenuButton->setText(ui->actionFoldersButton->text());
         m_foldersMenuButton->setToolTip(ui->actionFoldersButton->toolTip());
     }
+
+    updateHideNamesButtonAppearance();
 
     for (auto action : ui->helpMenu->actions()) {
         if (action->text().contains("%1"))
@@ -622,12 +701,24 @@ void MainWindow::applyThemedActionIcons()
     ui->actionFoldersButton->setIcon(APPLICATION->getThemedIcon(QStringLiteral("viewfolder")));
     ui->actionCheckUpdate->setIcon(APPLICATION->getThemedIcon(QStringLiteral("checkupdate")));
     ui->actionCopyInstance->setIcon(APPLICATION->getThemedIcon(QStringLiteral("copy")));
+    ui->actionEditInstance->setIcon(APPLICATION->getThemedIcon(QStringLiteral("settings")));
+    ui->actionChangeInstGroup->setIcon(APPLICATION->getThemedIcon(QStringLiteral("tag")));
+    ui->actionViewSelectedInstFolder->setIcon(APPLICATION->getThemedIcon(QStringLiteral("viewfolder")));
+    ui->actionExportInstance->setIcon(APPLICATION->getThemedIcon(QStringLiteral("export")));
+    ui->actionDeleteInstance->setIcon(APPLICATION->getThemedIcon(QStringLiteral("delete")));
+    ui->actionCreateInstanceShortcut->setIcon(APPLICATION->getThemedIcon(QStringLiteral("shortcut")));
     if (!BuildConfig.BUG_TRACKER_URL.isEmpty()) {
         ui->actionReportBug->setIcon(APPLICATION->getThemedIcon(QStringLiteral("bug")));
     }
     if (m_foldersMenuButton) {
         m_foldersMenuButton->setIcon(ui->actionFoldersButton->icon());
     }
+    if (m_instanceActionPanel) {
+        m_instanceActionPanel->setAddInstanceAction(ui->actionAddInstance);
+        m_instanceActionPanel->setHomeBrand(APPLICATION->getThemedIcon(QStringLiteral("logo")), BuildConfig.LAUNCHER_DISPLAYNAME,
+                                            tr("Select a client, or add a new one."));
+    }
+    updateHideNamesButtonAppearance();
 }
 
 void MainWindow::updateMainToolBar()
@@ -666,8 +757,12 @@ void MainWindow::syncLaunchAccountGating()
 
     ui->actionLaunchInstance->setEnabled(canLaunch);
     if (m_instanceActionPanel) {
+        // Launch and Kill share one primary slot so they never clip each other.
+        const bool canKill = hasInstance && running;
+        m_instanceActionPanel->launchButton()->setVisible(!canKill);
         m_instanceActionPanel->launchButton()->setEnabled(canLaunch);
-        m_instanceActionPanel->killButton()->setEnabled(hasInstance && running);
+        m_instanceActionPanel->killButton()->setVisible(canKill);
+        m_instanceActionPanel->killButton()->setEnabled(canKill);
     }
 
     QString blockReason;
@@ -963,9 +1058,17 @@ void MainWindow::addInstance(const QString& url, const QMap<QString, QString>& e
     APPLICATION->settings()->set("LastUsedGroupForNewInstance", newInstDlg.instGroup());
     APPLICATION->settings()->set("LastUsedInstDirForNewInstance", newInstDlg.instDir());
 
+    const bool installArsenalUtilities = newInstDlg.installArsenalUtilities();
+
     InstanceTask* creationTask = newInstDlg.extractTask();
     if (creationTask) {
-        instanceFromInstanceTask(creationTask);
+        unique_qobject_ptr<Task> task(APPLICATION->instances()->wrapInstanceTask(creationTask));
+        bool createdOk = false;
+        connect(task.get(), &Task::succeeded, this, [&createdOk]() { createdOk = true; });
+        runModalTask(task.get());
+        if (createdOk && installArsenalUtilities && m_selectedInstance) {
+            HackClients::installArsenalUtilities(m_selectedInstance, this);
+        }
     }
 }
 
@@ -1409,6 +1512,13 @@ void MainWindow::on_actionSettings_triggered()
 void MainWindow::globalSettingsClosed()
 {
     applyThemedActionIcons();
+    if (m_hideNamesButton) {
+        const bool masked = APPLICATION->settings()->get(NameProtect::MaskAccountsSetting).toBool();
+        QSignalBlocker blocker(m_hideNamesButton);
+        m_hideNamesButton->setChecked(masked);
+        updateHideNamesButtonAppearance();
+        refreshMaskedAccountUi();
+    }
     proxymodel->invalidate();
     proxymodel->sort(0);
     updateMainToolBar();
@@ -1416,6 +1526,13 @@ void MainWindow::globalSettingsClosed()
     updateThemeMenu();
     updateStatusCenter();
     updateInstanceAccountButton();
+    refreshInstancePanelHome();
+    if (m_selectedInstance) {
+        m_statusLeft->setText(shortInstanceStatusLine(m_selectedInstance));
+        if (m_instanceActionPanel) {
+            m_instanceActionPanel->setStatusChips(buildInstanceStatusChips(m_selectedInstance));
+        }
+    }
     enforceLegacyToolbarsHidden();
     // This needs to be done to prevent UI elements disappearing in the event the config is changed
     // but Prism Launcher exits abnormally, causing the window state to never be saved:
@@ -1451,6 +1568,33 @@ void MainWindow::on_actionManageSkins_triggered()
 void MainWindow::on_actionManageAccounts_triggered()
 {
     APPLICATION->ShowGlobalSettings(this, "accounts");
+}
+
+void MainWindow::onHideNamesToggled(bool checked)
+{
+    APPLICATION->settings()->set(NameProtect::MaskAccountsSetting, checked);
+    updateHideNamesButtonAppearance();
+    refreshMaskedAccountUi();
+    refreshInstancePanelHome();
+}
+
+void MainWindow::updateHideNamesButtonAppearance()
+{
+    if (!m_hideNamesButton)
+        return;
+
+    const bool on = m_hideNamesButton->isChecked();
+    m_hideNamesButton->setText(on ? tr("Names hidden") : tr("Hide names"));
+    m_hideNamesButton->setToolTip(
+        on ? tr("Usernames are obfuscated in the launcher. Click to show them again.")
+           : tr("Obfuscate all account usernames in the launcher UI (accounts menu, lists, instance picker)."));
+}
+
+void MainWindow::refreshMaskedAccountUi()
+{
+    if (auto accounts = APPLICATION->accounts())
+        accounts->refreshDisplayNames();
+    defaultAccountChanged();
 }
 
 void MainWindow::on_actionReportBug_triggered()
@@ -1697,20 +1841,19 @@ void MainWindow::instanceChanged(const QModelIndex& current, [[maybe_unused]] co
     m_selectedInstance = APPLICATION->instances()->getInstanceById(id);
     if (m_selectedInstance) {
         if (m_instanceActionPanel) {
-            m_instanceActionPanel->setEnabled(true);
+            m_instanceActionPanel->setDetailMode(true);
         }
         setInstanceActionsEnabled(true);
         syncLaunchAccountGating();
 
         ui->actionKillInstance->setEnabled(m_selectedInstance->isRunning());
         ui->actionExportInstance->setEnabled(m_selectedInstance->canExport());
-        // Compute once: getStatusbarDescription() can trigger PackProfile::reload.
-        const QString statusDescription = m_selectedInstance->getStatusbarDescription();
-        m_statusLeft->setText(statusDescription);
+        m_statusLeft->setText(shortInstanceStatusLine(m_selectedInstance));
         updateStatusCenter();
         updateInstanceToolIcon(m_selectedInstance->iconKey());
         if (m_instanceActionPanel) {
-            m_instanceActionPanel->setHeaderText(m_selectedInstance->name(), statusDescription);
+            m_instanceActionPanel->setHeaderText(m_selectedInstance->name());
+            m_instanceActionPanel->setStatusChips(buildInstanceStatusChips(m_selectedInstance));
         }
         updateInstanceAccountButton();
 
@@ -1737,7 +1880,7 @@ void MainWindow::instanceDataChanged(const QModelIndex& topLeft, const QModelInd
     auto current = view->selectionModel()->currentIndex();
     QItemSelection test(topLeft, bottomRight);
     if (test.contains(current)) {
-        instanceChanged(current, current);
+        scheduleInstanceUiRefresh();
     }
 }
 
@@ -1749,13 +1892,14 @@ void MainWindow::selectionBad()
 
     statusBar()->clearMessage();
     if (m_instanceActionPanel) {
-        m_instanceActionPanel->setEnabled(false);
+        m_instanceActionPanel->setDetailMode(false);
     }
     setInstanceActionsEnabled(false);
     updateLaunchButton();
     syncInstancePanelHeader();
     updateInstanceAccountButton();
     updateInstanceToolIcon("grass");
+    refreshInstancePanelHome();
 
     // ...and then see if we can enable the previously selected instance
     setSelectedInstanceById(APPLICATION->settings()->get("SelectedInstance").toString());
@@ -1819,8 +1963,38 @@ void MainWindow::setInstanceActionsEnabled(bool enabled)
 
 void MainWindow::refreshCurrentInstance()
 {
-    auto current = view->selectionModel()->currentIndex();
-    instanceChanged(current, current);
+    scheduleInstanceUiRefresh();
+}
+
+void MainWindow::scheduleInstanceUiRefresh()
+{
+    if (m_instanceUiRefreshPending) {
+        return;
+    }
+    m_instanceUiRefreshPending = true;
+    QTimer::singleShot(0, this, [this]() {
+        m_instanceUiRefreshPending = false;
+        refreshSelectedInstanceUi();
+    });
+}
+
+void MainWindow::refreshSelectedInstanceUi()
+{
+    if (!m_selectedInstance) {
+        return;
+    }
+    ui->actionKillInstance->setEnabled(m_selectedInstance->isRunning());
+    ui->actionExportInstance->setEnabled(m_selectedInstance->canExport());
+    m_statusLeft->setText(shortInstanceStatusLine(m_selectedInstance));
+    updateStatusCenter();
+    updateInstanceToolIcon(m_selectedInstance->iconKey());
+    if (m_instanceActionPanel) {
+        m_instanceActionPanel->setDetailMode(true);
+        m_instanceActionPanel->setHeaderText(m_selectedInstance->name());
+        m_instanceActionPanel->setStatusChips(buildInstanceStatusChips(m_selectedInstance));
+    }
+    updateInstanceAccountButton();
+    updateLaunchButton();
 }
 
 void MainWindow::syncInstancePanelHeader()
@@ -1829,10 +2003,137 @@ void MainWindow::syncInstancePanelHeader()
         return;
     }
     if (!m_selectedInstance) {
-        m_instanceActionPanel->setHeaderText(tr("No instance selected"), QString());
+        m_instanceActionPanel->setDetailMode(false);
         return;
     }
-    m_instanceActionPanel->setHeaderText(m_selectedInstance->name(), m_selectedInstance->getStatusbarDescription());
+    m_instanceActionPanel->setDetailMode(true);
+    m_instanceActionPanel->setHeaderText(m_selectedInstance->name());
+    m_instanceActionPanel->setStatusChips(buildInstanceStatusChips(m_selectedInstance));
+}
+
+void MainWindow::refreshInstancePanelHome()
+{
+    if (!m_instanceActionPanel) {
+        return;
+    }
+
+    QList<RecentLaunchItem> recent;
+    QList<MinecraftInstance*> instances;
+    auto* list = APPLICATION->instances();
+    for (int i = 0; i < list->count(); ++i) {
+        if (auto* inst = list->at(i)) {
+            instances.append(inst);
+        }
+    }
+    std::sort(instances.begin(), instances.end(), [](MinecraftInstance* a, MinecraftInstance* b) {
+        return a->lastLaunch() > b->lastLaunch();
+    });
+
+    const bool showTime = APPLICATION->settings()->get("ShowGameTime").toBool();
+    const bool noDays = APPLICATION->settings()->get("ShowGameTimeWithoutDays").toBool();
+    constexpr int kMaxRecent = 5;
+    for (MinecraftInstance* inst : instances) {
+        if (recent.size() >= kMaxRecent) {
+            break;
+        }
+        if (inst->lastLaunch() <= 0) {
+            continue;
+        }
+        RecentLaunchItem item;
+        item.id = inst->id();
+        item.name = inst->name();
+        item.icon = APPLICATION->icons()->getIcon(inst->iconKey());
+        QStringList meta;
+        if (auto* profile = inst->getPackProfile()) {
+            const QString mcVersion = profile->getComponentVersion(QStringLiteral("net.minecraft"));
+            if (!mcVersion.isEmpty()) {
+                meta << mcVersion;
+            }
+        }
+        if (showTime && inst->totalTimePlayed() > 0) {
+            meta << Time::prettifyDuration(inst->totalTimePlayed(), noDays);
+        }
+        item.meta = meta.join(QStringLiteral(" · "));
+        recent.append(item);
+    }
+    m_instanceActionPanel->setHomeRecentLaunches(recent);
+
+    QStringList npBits;
+    if (APPLICATION->settings()->get(NameProtect::EnabledSetting).toBool()) {
+        npBits << tr("NameProtect on");
+        const QString alias = APPLICATION->settings()->get(NameProtect::SelfAliasSetting).toString().trimmed();
+        if (!alias.isEmpty()) {
+            npBits << tr("alias “%1”").arg(alias);
+        }
+    } else {
+        npBits << tr("NameProtect off");
+    }
+    if (APPLICATION->settings()->get(NameProtect::MaskAccountsSetting).toBool()) {
+        npBits << tr("names hidden");
+    }
+    m_instanceActionPanel->setHomeNameProtectSummary(npBits.join(QStringLiteral(" · ")));
+}
+
+QList<InstanceStatusChip> MainWindow::buildInstanceStatusChips(MinecraftInstance* instance) const
+{
+    QList<InstanceStatusChip> chips;
+    if (!instance) {
+        return chips;
+    }
+
+    if (auto* profile = instance->getPackProfile()) {
+        const QString mcVersion = profile->getComponentVersion(QStringLiteral("net.minecraft"));
+        if (!mcVersion.isEmpty()) {
+            chips.append({ mcVersion, InstanceStatusChip::Tone::Neutral });
+        }
+    }
+
+    if (APPLICATION->settings()->get("ShowGameTime").toBool() && instance->totalTimePlayed() > 0) {
+        chips.append({ Time::prettifyDuration(instance->totalTimePlayed(),
+                                              APPLICATION->settings()->get("ShowGameTimeWithoutDays").toBool()),
+                       InstanceStatusChip::Tone::Neutral });
+    }
+
+    if (instance->isRunning()) {
+        chips.append({ tr("Running"), InstanceStatusChip::Tone::Success });
+    } else if (instance->hasCrashed()) {
+        chips.append({ tr("Crashed"), InstanceStatusChip::Tone::Danger });
+    }
+    if (instance->hasVersionBroken()) {
+        chips.append({ tr("Broken"), InstanceStatusChip::Tone::Danger });
+    } else if (instance->hasUpdateAvailable()) {
+        chips.append({ tr("Update"), InstanceStatusChip::Tone::Warning });
+    }
+
+    return chips;
+}
+
+QString MainWindow::shortInstanceStatusLine(MinecraftInstance* instance) const
+{
+    if (!instance) {
+        return tr("No instance selected");
+    }
+
+    QStringList parts;
+    if (auto* profile = instance->getPackProfile()) {
+        const QString mcVersion = profile->getComponentVersion(QStringLiteral("net.minecraft"));
+        if (!mcVersion.isEmpty()) {
+            parts << tr("Minecraft %1").arg(mcVersion);
+        }
+    }
+    if (APPLICATION->settings()->get("ShowGameTime").toBool() && instance->totalTimePlayed() > 0) {
+        parts << Time::prettifyDuration(instance->totalTimePlayed(),
+                                        APPLICATION->settings()->get("ShowGameTimeWithoutDays").toBool());
+    }
+    if (instance->isRunning()) {
+        parts << tr("running");
+    } else if (instance->hasCrashed()) {
+        parts << tr("crashed");
+    }
+    if (instance->hasVersionBroken()) {
+        parts << tr("broken");
+    }
+    return parts.isEmpty() ? instance->name() : parts.join(QStringLiteral(" · "));
 }
 
 void MainWindow::updateInstanceAccountButton()
@@ -2029,11 +2330,11 @@ void MainWindow::changeInstanceAccount()
         return;
     }
 
-    const QVariant data = action->data();
-    if (!data.isValid() || data.toString().isEmpty()) {
+    const QVariant accountData = action->data();
+    if (!accountData.isValid() || accountData.toString().isEmpty()) {
         clearInstanceAccountOverride();
         return;
     }
 
-    applyInstanceAccountOverride(data.toString());
+    applyInstanceAccountOverride(accountData.toString());
 }

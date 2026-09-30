@@ -41,10 +41,13 @@ QIcon loadFromThemeDir(const QString& theme, const QString& name, const QColor& 
     if (auto icon = loadThemedSvg(instanceSvg, color, size); !icon.isNull())
         return icon;
 
-    for (int px : {32, 24, 48, 16}) {
+    for (int px : {32, 24, 48, 128, 16, 50}) {
         const QString pngPath = QStringLiteral(":/icons/%1/%2x%2/%3.png").arg(theme).arg(px).arg(name);
         if (QFile::exists(pngPath))
             return QIcon(pngPath);
+        const QString instancePng = QStringLiteral(":/icons/%1/%2x%2/instances/%3.png").arg(theme).arg(px).arg(name);
+        if (QFile::exists(instancePng))
+            return QIcon(instancePng);
     }
     return {};
 }

@@ -20,6 +20,7 @@ jobs:
     with:
       build-type: Release
       environment: Release
+      release-tag: ${{ github.ref_name }}
     secrets: inherit
 
   create_release:
@@ -52,6 +53,12 @@ jobs:
           mv Arsenal-*.AppImage.zsync/Arsenal-*-aarch64.AppImage.zsync Arsenal-Linux-aarch64.AppImage.zsync
           mv Arsenal-macOS*/Arsenal.zip Arsenal-macOS-${{ env.VERSION }}.zip
           mv Arsenal-macOS*/Arsenal.dmg Arsenal-macOS-${{ env.VERSION }}.dmg
+          # Optional Sparkle feed (produced on macOS when SPARKLE_ED25519_KEY is set)
+          if [ -f Arsenal-macOS-appcast/appcast.xml ]; then
+            cp Arsenal-macOS-appcast/appcast.xml appcast.xml
+          elif [ -f Arsenal-macOS*/appcast.xml ]; then
+            cp Arsenal-macOS*/appcast.xml appcast.xml
+          fi
 
           tar --exclude='.git' -czf Arsenal-${{ env.VERSION }}.tar.gz Arsenal-${{ env.VERSION }}
 
@@ -81,6 +88,41 @@ jobs:
             cd ..
           done
 
+      - name: Build release asset list
+        id: release-files
+        run: |
+          VERSION='${{ env.VERSION }}'
+          files=(
+            "Arsenal-Linux-x86_64.AppImage"
+            "Arsenal-Linux-x86_64.AppImage.zsync"
+            "Arsenal-Linux-aarch64.AppImage"
+            "Arsenal-Linux-aarch64.AppImage.zsync"
+            "Arsenal-Linux-Qt6-Portable-${VERSION}.tar.gz"
+            "Arsenal-Linux-aarch64-Qt6-Portable-${VERSION}.tar.gz"
+            "Arsenal-Windows-MinGW-w64-${VERSION}.zip"
+            "Arsenal-Windows-MinGW-w64-Portable-${VERSION}.zip"
+            "Arsenal-Windows-MinGW-w64-Setup-${VERSION}.exe"
+            "Arsenal-Windows-MSVC-arm64-${VERSION}.zip"
+            "Arsenal-Windows-MSVC-arm64-Portable-${VERSION}.zip"
+            "Arsenal-Windows-MSVC-arm64-Setup-${VERSION}.exe"
+            "Arsenal-Windows-MSVC-${VERSION}.zip"
+            "Arsenal-Windows-MSVC-Portable-${VERSION}.zip"
+            "Arsenal-Windows-MSVC-Setup-${VERSION}.exe"
+            "Arsenal-macOS-${VERSION}.zip"
+            "Arsenal-macOS-${VERSION}.dmg"
+            "Arsenal-${VERSION}.tar.gz"
+          )
+          if [ -f appcast.xml ]; then
+            files+=(appcast.xml)
+          else
+            echo '::warning::appcast.xml missing — add repo secret SPARKLE_ED25519_KEY (contents of arsenal-sparkle-ed25519.pem) so Mac auto-updates work'
+          fi
+          {
+            echo 'list<<EOF'
+            printf '%s\n' "${files[@]}"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
       - name: Create release
         id: create_release
         uses: softprops/action-gh-release@v3
@@ -91,22 +133,4 @@ jobs:
           draft: true
           prerelease: false
           fail_on_unmatched_files: true
-          files: |
-            Arsenal-Linux-x86_64.AppImage
-            Arsenal-Linux-x86_64.AppImage.zsync
-            Arsenal-Linux-aarch64.AppImage
-            Arsenal-Linux-aarch64.AppImage.zsync
-            Arsenal-Linux-Qt6-Portable-${{ env.VERSION }}.tar.gz
-            Arsenal-Linux-aarch64-Qt6-Portable-${{ env.VERSION }}.tar.gz
-            Arsenal-Windows-MinGW-w64-${{ env.VERSION }}.zip
-            Arsenal-Windows-MinGW-w64-Portable-${{ env.VERSION }}.zip
-            Arsenal-Windows-MinGW-w64-Setup-${{ env.VERSION }}.exe
-            Arsenal-Windows-MSVC-arm64-${{ env.VERSION }}.zip
-            Arsenal-Windows-MSVC-arm64-Portable-${{ env.VERSION }}.zip
-            Arsenal-Windows-MSVC-arm64-Setup-${{ env.VERSION }}.exe
-            Arsenal-Windows-MSVC-${{ env.VERSION }}.zip
-            Arsenal-Windows-MSVC-Portable-${{ env.VERSION }}.zip
-            Arsenal-Windows-MSVC-Setup-${{ env.VERSION }}.exe
-            Arsenal-macOS-${{ env.VERSION }}.zip
-            Arsenal-macOS-${{ env.VERSION }}.dmg
-            Arsenal-${{ env.VERSION }}.tar.gz
+          files: ${{ steps.release-files.outputs.list }}

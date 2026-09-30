@@ -70,6 +70,7 @@
 
 #include "hackclients/BaritoneModInstallTask.h"
 #include "hackclients/HackClientInstanceDetect.h"
+#include "ui/dialogs/AnarchyUtilsDialog.h"
 #include "ui/dialogs/MeteorAddonsDialog.h"
 #include "minecraft/MinecraftInstance.h"
 #include "modplatform/ModIndex.h"
@@ -79,7 +80,8 @@ ModFolderPage::ModFolderPage(MinecraftInstance* inst,
                                ModFolderModel* model,
                                QWidget* parent,
                                bool offerBaritoneInstall,
-                               bool offerMeteorAddons)
+                               bool offerMeteorAddons,
+                               bool offerAnarchyUtils)
     : ExternalResourcesPage(inst, model, parent), m_model(model), m_offerMeteorAddons(offerMeteorAddons)
 {
     ui->actionDownloadItem->setText(tr("Download Mods"));
@@ -89,22 +91,31 @@ ModFolderPage::ModFolderPage(MinecraftInstance* inst,
 
     connect(ui->actionDownloadItem, &QAction::triggered, this, &ModFolderPage::downloadMods);
 
+    QAction* afterDownload = ui->actionDownloadItem;
+
     if (offerBaritoneInstall) {
         m_installBaritoneAction = new QAction(tr("Install Baritone"), this);
         m_installBaritoneAction->setToolTip(
-            tr("Download Baritone for this instance's Minecraft version (Fabric only)"));
-        ui->actionsToolbar->insertActionAfter(ui->actionDownloadItem, m_installBaritoneAction);
+            tr("Download Baritone for this Minecraft version (Meteor fork if Meteor Client is installed)"));
+        ui->actionsToolbar->insertActionAfter(afterDownload, m_installBaritoneAction);
         connect(m_installBaritoneAction, &QAction::triggered, this, &ModFolderPage::installBaritone);
+        afterDownload = m_installBaritoneAction;
+    }
+
+    if (offerAnarchyUtils) {
+        m_installAnarchyUtilsAction = new QAction(tr("Anarchy Utils"), this);
+        m_installAnarchyUtilsAction->setToolTip(
+            tr("Install curated Fabric utilities (Litematica and more) for this Minecraft version"));
+        ui->actionsToolbar->insertActionAfter(afterDownload, m_installAnarchyUtilsAction);
+        connect(m_installAnarchyUtilsAction, &QAction::triggered, this, &ModFolderPage::installAnarchyUtils);
+        afterDownload = m_installAnarchyUtilsAction;
     }
 
     if (offerMeteorAddons) {
         m_installMeteorAddonsAction = new QAction(tr("Meteor Addons"), this);
         m_installMeteorAddonsAction->setToolTip(
             tr("Browse community Meteor Client addons and install JARs into this instance (Meteor required)"));
-        if (m_installBaritoneAction)
-            ui->actionsToolbar->insertActionAfter(m_installBaritoneAction, m_installMeteorAddonsAction);
-        else
-            ui->actionsToolbar->insertActionAfter(ui->actionDownloadItem, m_installMeteorAddonsAction);
+        ui->actionsToolbar->insertActionAfter(afterDownload, m_installMeteorAddonsAction);
         connect(m_installMeteorAddonsAction, &QAction::triggered, this, &ModFolderPage::installMeteorAddons);
     }
 
@@ -153,6 +164,15 @@ void ModFolderPage::updateActions()
     ExternalResourcesPage::updateActions();
     if (m_installBaritoneAction) {
         m_installBaritoneAction->setEnabled(m_instance && !m_instance->isRunning());
+        if (m_instance && m_model) {
+            const bool hasMeteor = HackClients::modsFolderHasMeteorClient(m_model->dir().absolutePath());
+            m_installBaritoneAction->setToolTip(
+                hasMeteor ? tr("Download Meteor's Baritone fork for this Minecraft version (required for Meteor pathfinding / addons)")
+                          : tr("Download Fabric Baritone for this instance's Minecraft version"));
+        }
+    }
+    if (m_installAnarchyUtilsAction) {
+        m_installAnarchyUtilsAction->setEnabled(m_instance && !m_instance->isRunning());
     }
     if (m_installMeteorAddonsAction && m_instance) {
         auto profile = m_instance->getPackProfile();
@@ -241,8 +261,37 @@ void ModFolderPage::installMeteorAddons()
         return;
     }
 
-    MeteorAddonsDialog dialog(mcVersion, modsDir, this);
-    if (dialog.exec() == QDialog::Accepted)
+    MeteorAddonsDialog dialog(mcVersion, modsDir, this->window() ? this->window() : this);
+    dialog.exec();
+    if (dialog.modsMayHaveChanged() || dialog.result() == QDialog::Accepted)
+        m_model->update();
+}
+
+void ModFolderPage::installAnarchyUtils()
+{
+    if (!m_instance || m_instance->isRunning()) {
+        return;
+    }
+
+    auto profile = m_instance->getPackProfile();
+    const auto loaders = profile->getModLoaders();
+    if (!loaders || !loaders->testFlag(ModPlatform::ModLoaderType::Fabric)) {
+        QMessageBox::information(
+            this, tr("Anarchy Utils"),
+            tr("Anarchy Utils quick install is only supported on Fabric instances. "
+               "Add Fabric Loader on the Version page first."));
+        return;
+    }
+
+    const QString mcVersion = profile->getComponentVersion("net.minecraft");
+    if (mcVersion.isEmpty()) {
+        QMessageBox::critical(this, tr("Anarchy Utils"), tr("Could not determine the Minecraft version."));
+        return;
+    }
+
+    AnarchyUtilsDialog dialog(mcVersion, m_model, this);
+    dialog.exec();
+    if (dialog.modsMayHaveChanged() || dialog.result() == QDialog::Accepted)
         m_model->update();
 }
 

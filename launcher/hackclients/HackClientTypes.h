@@ -4,6 +4,7 @@
 #include <QString>
 #include <QList>
 #include <QDateTime>
+#include <QUrl>
 
 namespace HackClients {
 
@@ -104,6 +105,8 @@ struct MeteorAddonEntry {
     QStringList downloadUrls;
     QString repoOwner;
     QString repoName;
+    int stars = 0;
+    int downloads = 0;
 
     bool supportsMinecraft(const QString& mcVersion) const
     {
@@ -156,6 +159,57 @@ struct WurstRelease {
             return QString("%1 (%2)").arg(wurstVersion, minecraftVersion);
         return tagName;
     }
+};
+
+struct EpsilonRelease {
+    QString tagName;           // e.g. "2026.12.0" or "nightly"
+    QString epsilonVersion;    // e.g. "2026.12.0" or "2026.12.1-634e865"
+    QString minecraftVersion;  // e.g. "26.3" (from Fabric JAR name)
+    QString jarName;
+    QString jarUrl;
+    bool prerelease = false;
+    /** Combo / lookup key: tag + MC (one GitHub release may ship multiple MC JARs). */
+    QString selectionKey() const
+    {
+        return QStringLiteral("%1|%2").arg(tagName, minecraftVersion);
+    }
+    /** Shown as the instance version line (name is always "Epsilon"). */
+    QString instanceVersionLabel() const
+    {
+        if (!epsilonVersion.isEmpty() && !minecraftVersion.isEmpty())
+            return QString("%1 (%2)").arg(epsilonVersion, minecraftVersion);
+        return tagName;
+    }
+};
+
+/** Curated Fabric utility installable from the Mods tab (Modrinth). */
+struct AnarchyUtilitySpec {
+    QString id;                 // stable id, e.g. "litematica"
+    QString name;               // display name
+    QString description;
+    QString modrinthSlug;       // Modrinth project slug or id (empty if GitHub-only)
+    QStringList jarNameHints;   // prefix-style hints for replace / detect (see fileMatchesJarHint)
+    /** Optional owner/repo for GitHub Releases when not on Modrinth (e.g. SeedcrackerX). */
+    QString githubReleasesRepo;
+};
+
+struct AnarchyUtilityResolvedFile {
+    QString projectId;
+    QString versionId;
+    QString slug;
+    QString displayName;
+    QString versionNumber;
+    QString fileName;
+    QUrl downloadUrl;
+    QString hashSha512;
+    QStringList jarNameHints;
+    QStringList requiredBy;  // display names of mods that need this
+    bool isDependency = false;
+    bool isRoot = false;
+    /** Exact destination filename already present — safe to skip. */
+    bool alreadyInstalled = false;
+    /** A different version matching jar hints may be present — offer replace. */
+    bool maybeInstalled = false;
 };
 
 }  // namespace HackClients

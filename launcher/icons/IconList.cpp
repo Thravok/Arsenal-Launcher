@@ -51,18 +51,20 @@
 
 IconList::IconList(const QStringList& builtinPaths, const QString& path, QObject* parent) : QAbstractListModel(parent)
 {
-    QSet<QString> builtinNames;
-
-    // add builtin icons
+    // Builtin instance icons must come from the instance icon packs (multimc paths),
+    // not QIcon::fromTheme — the UI chrome theme (e.g. Lucide) only has UI glyphs and
+    // would hide Meteor/LiquidBounce/Impact/etc.
+    QMap<QString, QString> builtinFiles;
     for (const auto& builtinPath : builtinPaths) {
         QDir instanceIcons(builtinPath);
-        auto fileInfoList = instanceIcons.entryInfoList(QDir::Files, QDir::Name);
+        const auto fileInfoList = instanceIcons.entryInfoList(QDir::Files, QDir::Name);
         for (const auto& fileInfo : fileInfoList) {
-            builtinNames.insert(fileInfo.completeBaseName());
+            // Later paths override earlier ones (32 → 128 → scalable).
+            builtinFiles.insert(fileInfo.completeBaseName(), fileInfo.absoluteFilePath());
         }
     }
-    for (const auto& builtinName : builtinNames) {
-        addThemeIcon(builtinName);
+    for (auto it = builtinFiles.constBegin(); it != builtinFiles.constEnd(); ++it) {
+        addIcon(it.key(), it.key(), it.value(), IconType::Builtin);
     }
 
     m_watcher.reset(new QFileSystemWatcher());

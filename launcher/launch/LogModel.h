@@ -1,6 +1,8 @@
 #pragma once
 
 #include <QAbstractListModel>
+#include <QList>
+#include <QPair>
 #include <QString>
 #include "MessageLevel.h"
 
@@ -13,6 +15,8 @@ class LogModel : public QAbstractListModel {
     QVariant data(const QModelIndex& index, int role) const;
 
     void append(MessageLevel, QString line);
+    /** Append multiple lines with a single model insert notification. */
+    void append(const QList<QPair<MessageLevel, QString>>& lines);
     void clear();
 
     void suspend(bool suspend);

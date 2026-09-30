@@ -36,6 +36,7 @@
  */
 
 #include "MinecraftAccount.h"
+#include "minecraft/NameProtectConfig.h"
 
 #include <QColor>
 #include <QCryptographicHash>
@@ -217,10 +218,12 @@ void MinecraftAccount::authFailed(QString reason)
 
 QString MinecraftAccount::displayName() const
 {
-    if (const QList validStates{ AccountState::Unchecked, AccountState::Working, AccountState::Offline, AccountState::Online }; !validStates.contains(accountState())) {
-        return QString("⚠ %1").arg(profileName());
+    const QString name = NameProtect::maybeMaskProfileName(profileName());
+    if (const QList validStates{ AccountState::Unchecked, AccountState::Working, AccountState::Offline, AccountState::Online };
+        !validStates.contains(accountState())) {
+        return QString("⚠ %1").arg(name);
     }
-    return profileName();
+    return name;
 }
 
 bool MinecraftAccount::isActive() const

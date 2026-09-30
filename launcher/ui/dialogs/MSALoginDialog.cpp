@@ -79,25 +79,25 @@ MSALoginDialog::MSALoginDialog(QWidget* parent) : QDialog(parent), ui(new Ui::MS
 
 int MSALoginDialog::exec()
 {
-    // Setup the login task and start it
-    m_account = MinecraftAccount::createBlankMSA();
-    m_authflow_task = m_account->login(false);
-    connect(m_authflow_task.get(), &Task::failed, this, &MSALoginDialog::onTaskFailed);
-    connect(m_authflow_task.get(), &Task::succeeded, this, &QDialog::accept);
+    m_browser_account = MinecraftAccount::createBlankMSA();
+    m_device_account = MinecraftAccount::createBlankMSA();
+
+    m_authflow_task = m_browser_account->login(false);
+    connect(m_authflow_task.get(), &Task::failed, this, &MSALoginDialog::onBrowserFlowFailed);
+    connect(m_authflow_task.get(), &Task::succeeded, this, &MSALoginDialog::onBrowserFlowSucceeded);
     connect(m_authflow_task.get(), &Task::aborted, this, &MSALoginDialog::reject);
     connect(m_authflow_task.get(), &Task::status, this, &MSALoginDialog::onAuthFlowStatus);
     connect(m_authflow_task.get(), &AuthFlow::authorizeWithBrowser, this, &MSALoginDialog::authorizeWithBrowser);
-    connect(m_authflow_task.get(), &AuthFlow::authorizeWithBrowserWithExtra, this, &MSALoginDialog::authorizeWithBrowserWithExtra);
     connect(ui->buttonBox->button(QDialogButtonBox::Cancel), &QPushButton::clicked, m_authflow_task.get(), &Task::abort);
 
-    m_devicecode_task.reset(new AuthFlow(m_account->accountData(), AuthFlow::Action::DeviceCode));
-    connect(m_devicecode_task.get(), &Task::failed, this, &MSALoginDialog::onTaskFailed);
-    connect(m_devicecode_task.get(), &Task::succeeded, this, &QDialog::accept);
+    m_devicecode_task.reset(new AuthFlow(m_device_account->accountData(), AuthFlow::Action::DeviceCode));
+    connect(m_devicecode_task.get(), &Task::failed, this, &MSALoginDialog::onDeviceFlowFailed);
+    connect(m_devicecode_task.get(), &Task::succeeded, this, &MSALoginDialog::onDeviceFlowSucceeded);
     connect(m_devicecode_task.get(), &Task::aborted, this, &MSALoginDialog::reject);
     connect(m_devicecode_task.get(), &Task::status, this, &MSALoginDialog::onDeviceFlowStatus);
-    connect(m_devicecode_task.get(), &AuthFlow::authorizeWithBrowser, this, &MSALoginDialog::authorizeWithBrowser);
     connect(m_devicecode_task.get(), &AuthFlow::authorizeWithBrowserWithExtra, this, &MSALoginDialog::authorizeWithBrowserWithExtra);
     connect(ui->buttonBox->button(QDialogButtonBox::Cancel), &QPushButton::clicked, m_devicecode_task.get(), &Task::abort);
+
     QMetaObject::invokeMethod(m_authflow_task.get(), &Task::start, Qt::QueuedConnection);
     QMetaObject::invokeMethod(m_devicecode_task.get(), &Task::start, Qt::QueuedConnection);
 
@@ -109,11 +109,63 @@ MSALoginDialog::~MSALoginDialog()
     delete ui;
 }
 
-void MSALoginDialog::onTaskFailed(QString reason)
+void MSALoginDialog::cancelOtherFlow(shared_qobject_ptr<AuthFlow> keep)
 {
-    // Set message
-    m_authflow_task->disconnect();
-    m_devicecode_task->disconnect();
+    auto cancel = [this, &keep](shared_qobject_ptr<AuthFlow>& task) {
+        if (!task || task == keep)
+            return;
+        task->disconnect(this);
+        if (task->isRunning())
+            task->abort();
+    };
+    cancel(m_authflow_task);
+    cancel(m_devicecode_task);
+}
+
+void MSALoginDialog::onBrowserFlowSucceeded()
+{
+    m_account = m_browser_account;
+    cancelOtherFlow(m_authflow_task);
+    accept();
+}
+
+void MSALoginDialog::onDeviceFlowSucceeded()
+{
+    m_account = m_device_account;
+    cancelOtherFlow(m_devicecode_task);
+    accept();
+}
+
+void MSALoginDialog::onBrowserFlowFailed(QString reason)
+{
+    m_browser_failed = true;
+    qWarning() << "Microsoft browser login failed:" << reason;
+    if (m_device_failed)
+        failDialog(reason);
+    // else keep waiting on device-code / leave Sign in button usable
+}
+
+void MSALoginDialog::onDeviceFlowFailed(QString reason)
+{
+    m_device_failed = true;
+    qWarning() << "Microsoft device-code login failed:" << reason;
+    if (m_browser_failed) {
+        failDialog(reason);
+        return;
+    }
+    // Device code often fails (public-client / network) while browser OAuth still works.
+    // Don't tear down the browser flow — just note it on the device-code pane.
+    ui->stackedWidget->setCurrentIndex(0);
+    ui->status->setText(tr("<font color='red'>Device login unavailable.</font><br/>Use <b>Sign in with Microsoft</b> above."));
+}
+
+void MSALoginDialog::failDialog(const QString& reason)
+{
+    if (m_authflow_task)
+        m_authflow_task->disconnect(this);
+    if (m_devicecode_task)
+        m_devicecode_task->disconnect(this);
+
     ui->stackedWidget->setCurrentIndex(0);
     auto lines = reason.split('\n');
     QString processed;
@@ -125,13 +177,8 @@ void MSALoginDialog::onTaskFailed(QString reason)
         }
     }
     ui->status->setText(processed);
-    auto task = m_authflow_task;
-    if (task->failReason().isEmpty()) {
-        task = m_devicecode_task;
-    }
-    if (task) {
-        ui->loadingLabel->setText(task->getStatus());
-    }
+    ui->loadingLabel->setText(tr("Failed to authenticate. The session has expired."));
+
     disconnect(ui->buttonBox->button(QDialogButtonBox::Cancel), &QPushButton::clicked, m_authflow_task.get(), &Task::abort);
     disconnect(ui->buttonBox->button(QDialogButtonBox::Cancel), &QPushButton::clicked, m_devicecode_task.get(), &Task::abort);
     connect(ui->buttonBox->button(QDialogButtonBox::Cancel), &QPushButton::clicked, this, &MSALoginDialog::reject);

@@ -38,17 +38,29 @@ class MSALoginDialog : public QDialog {
     explicit MSALoginDialog(QWidget* parent = 0);
 
    protected slots:
-    void onTaskFailed(QString reason);
+    void onBrowserFlowFailed(QString reason);
+    void onDeviceFlowFailed(QString reason);
+    void onBrowserFlowSucceeded();
+    void onDeviceFlowSucceeded();
     void onDeviceFlowStatus(QString status);
     void onAuthFlowStatus(QString status);
     void authorizeWithBrowser(const QUrl& url);
     void authorizeWithBrowserWithExtra(QString url, QString code, int expiresIn);
 
    private:
+    void failDialog(const QString& reason);
+    void cancelOtherFlow(shared_qobject_ptr<AuthFlow> keep);
+
     Ui::MSALoginDialog* ui;
-    MinecraftAccountPtr m_account;
+    // Browser and device-code flows must not share AccountData — they race and
+    // one failure used to disconnect both, leaving a completed browser login stuck.
+    MinecraftAccountPtr m_browser_account;
+    MinecraftAccountPtr m_device_account;
+    MinecraftAccountPtr m_account;  // whichever flow succeeded
     shared_qobject_ptr<AuthFlow> m_devicecode_task;
     shared_qobject_ptr<AuthFlow> m_authflow_task;
+    bool m_browser_failed = false;
+    bool m_device_failed = false;
 
     QUrl m_url;
 };

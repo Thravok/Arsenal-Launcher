@@ -43,6 +43,7 @@
 #include <QListView>
 #include <QMimeData>
 #include <QMouseEvent>
+#include <QEvent>
 #include <QPainter>
 #include <QPersistentModelIndex>
 #include <QScrollBar>
@@ -51,7 +52,9 @@
 #include "VisualGroup.h"
 
 #include <Application.h>
+#include <BaseInstance.h>
 #include <InstanceList.h>
+#include "InstanceDelegate.h"
 
 template <typename T>
 bool listsIntersect(const QList<T>& l1, const QList<T> t2)
@@ -70,6 +73,8 @@ InstanceView::InstanceView(QWidget* parent) : QAbstractItemView(parent)
     setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     setAcceptDrops(true);
     setAutoScroll(true);
+    setMouseTracking(true);
+    viewport()->setMouseTracking(true);
     connect(verticalScrollBar(), &QScrollBar::valueChanged, viewport(), QOverload<>::of(&QWidget::update));
     connect(horizontalScrollBar(), &QScrollBar::valueChanged, viewport(), QOverload<>::of(&QWidget::update));
 }
@@ -319,6 +324,14 @@ void InstanceView::mouseMoveEvent(QMouseEvent* event)
     QPoint visualPos = event->pos();
     QPoint geometryPos = event->pos() + offset();
 
+    if (event->buttons() == Qt::NoButton) {
+        const QModelIndex hovered = indexAt(visualPos);
+        if (hovered != m_hoverIndex) {
+            m_hoverIndex = hovered;
+            viewport()->update();
+        }
+    }
+
     if (state() == ExpandingState || state() == CollapsingState) {
         return;
     }
@@ -356,6 +369,15 @@ void InstanceView::mouseMoveEvent(QMouseEvent* event)
             selectionModel()->setCurrentIndex(index, QItemSelectionModel::NoUpdate);
         }
     }
+}
+
+void InstanceView::leaveEvent(QEvent* event)
+{
+    if (m_hoverIndex.isValid()) {
+        m_hoverIndex = QModelIndex();
+        viewport()->update();
+    }
+    QAbstractItemView::leaveEvent(event);
 }
 
 void InstanceView::mouseReleaseEvent(QMouseEvent* event)
@@ -399,6 +421,15 @@ void InstanceView::mouseReleaseEvent(QMouseEvent* event)
     if (index == m_pressedIndex && index.isValid()) {
         if (event->button() == Qt::LeftButton) {
             emit clicked(index);
+            const QRect itemRect = visualRect(index);
+            if (ListViewDelegate::hitPlayButton(itemRect, visualPos)) {
+                auto* instance = static_cast<BaseInstance*>(index.data(InstanceList::InstancePointerRole).value<void*>());
+                if (instance && (instance->canLaunch() || instance->isRunning())) {
+                    emit playControlActivated(index);
+                    event->accept();
+                    return;
+                }
+            }
         }
         QStyleOptionViewItem option;
         initViewItemOption(&option);
@@ -446,41 +477,65 @@ void InstanceView::paintEvent([[maybe_unused]] QPaintEvent* event)
 
     if (model()->rowCount() == 0) {
         painter.save();
-        QString emptyString = tr("Welcome!") + "\n" + tr("Click \"Add Instance\" to get started.");
+        const QString title = tr("Add your first client");
+        const QString subtitle = tr("Click \"Add Instance\" to get started.");
 
-        // calculate the rect for the overlay
         painter.setRenderHint(QPainter::Antialiasing, true);
-        QFont font("sans", 20);
-        font.setBold(true);
+        QFont titleFont = QApplication::font();
+        titleFont.setPointSizeF(titleFont.pointSizeF() + 6);
+        titleFont.setBold(true);
+        QFont subtitleFont = QApplication::font();
+        subtitleFont.setPointSizeF(subtitleFont.pointSizeF() + 1);
 
         QRect bounds = viewport()->geometry();
         bounds.moveTop(0);
-        auto innerBounds = bounds;
-        innerBounds.adjust(10, 10, -10, -10);
 
-        QColor background = QApplication::palette().color(QPalette::WindowText);
-        QColor foreground = QApplication::palette().color(QPalette::Base);
-        foreground.setAlpha(190);
-        painter.setFont(font);
-        auto fontMetrics = painter.fontMetrics();
-        auto textRect = fontMetrics.boundingRect(innerBounds, Qt::AlignHCenter | Qt::TextWordWrap, emptyString);
-        textRect.moveCenter(bounds.center());
+        const QIcon logo = APPLICATION->getThemedIcon(QStringLiteral("logo"));
+        const QSize logoSize(56, 56);
+        const QPixmap logoPixmap = logo.pixmap(logoSize);
 
-        auto wrapRect = textRect;
-        wrapRect.adjust(-10, -10, 10, 10);
+        QFontMetrics titleMetrics(titleFont);
+        QFontMetrics subtitleMetrics(subtitleFont);
+        const int textWidth = qMax(titleMetrics.horizontalAdvance(title), subtitleMetrics.horizontalAdvance(subtitle));
+        const int contentWidth = qMax(logoSize.width(), textWidth);
+        const int contentHeight = (logoPixmap.isNull() ? 0 : logoSize.height() + 14) + titleMetrics.height() + 6 + subtitleMetrics.height();
 
-        // check if we are allowed to draw in our area
+        QRect contentRect(0, 0, contentWidth, contentHeight);
+        contentRect.moveCenter(bounds.center());
+
+        QRect wrapRect = contentRect.adjusted(-24, -20, 24, 20);
         if (!event->rect().intersects(wrapRect)) {
+            painter.restore();
             return;
         }
 
+        QColor background = QApplication::palette().color(QPalette::WindowText);
+        background.setAlpha(28);
+        QColor foreground = QApplication::palette().color(QPalette::WindowText);
+        QColor muted = foreground;
+        muted.setAlpha(170);
+
         painter.setBrush(QBrush(background));
-        painter.setPen(foreground);
-        painter.drawRoundedRect(wrapRect, 5.0, 5.0);
+        painter.setPen(Qt::NoPen);
+        painter.drawRoundedRect(wrapRect, 14.0, 14.0);
+
+        int y = contentRect.top();
+        if (!logoPixmap.isNull()) {
+            const QRect logoRect(contentRect.center().x() - logoSize.width() / 2, y, logoSize.width(), logoSize.height());
+            painter.drawPixmap(logoRect, logoPixmap);
+            y += logoSize.height() + 14;
+        }
 
         painter.setPen(foreground);
-        painter.setFont(font);
-        painter.drawText(textRect, Qt::AlignHCenter | Qt::TextWordWrap, emptyString);
+        painter.setFont(titleFont);
+        painter.drawText(QRect(contentRect.left(), y, contentRect.width(), titleMetrics.height()), Qt::AlignHCenter | Qt::AlignVCenter,
+                         title);
+        y += titleMetrics.height() + 6;
+
+        painter.setPen(muted);
+        painter.setFont(subtitleFont);
+        painter.drawText(QRect(contentRect.left(), y, contentRect.width(), subtitleMetrics.height()), Qt::AlignHCenter | Qt::AlignVCenter,
+                         subtitle);
 
         painter.restore();
         return;
@@ -515,6 +570,11 @@ void InstanceView::paintEvent([[maybe_unused]] QPaintEvent* event)
             option.state &= ~QStyle::State_Selected;
         }
         option.state |= (index == currentIndex()) ? QStyle::State_HasFocus : QStyle::State_None;
+        if (index == m_hoverIndex) {
+            option.state |= QStyle::State_MouseOver;
+        } else {
+            option.state &= ~QStyle::State_MouseOver;
+        }
         if (!(flags & Qt::ItemIsEnabled)) {
             option.state &= ~QStyle::State_Enabled;
         }

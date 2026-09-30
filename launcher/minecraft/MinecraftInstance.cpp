@@ -40,6 +40,7 @@
 #include "BuildConfig.h"
 #include "Json.h"
 #include "QObjectPtr.h"
+#include "minecraft/NameProtectConfig.h"
 #include "settings/Setting.h"
 #include "settings/SettingsObject.h"
 
@@ -1058,6 +1059,10 @@ QMap<QString, QString> MinecraftInstance::createCensorFilterFromSession(AuthSess
         addToFilter(sessionRef.access_token, tr("<ACCESS TOKEN>"));
     }
     addToFilter(sessionRef.uuid, tr("<PROFILE ID>"));
+    if (APPLICATION->settings()->get(NameProtect::MaskAccountsSetting).toBool() ||
+        APPLICATION->settings()->get(NameProtect::EnabledSetting).toBool()) {
+        addToFilter(sessionRef.player_name, tr("<PLAYER NAME>"));
+    }
 
     return filter;
 }
@@ -1151,6 +1156,14 @@ LaunchTask* MinecraftInstance::createLaunchTask(AuthSessionPtr session, Minecraf
     auto pptr = process.get();
 
     APPLICATION->icons()->saveIcon(iconKey(), FS::PathCombine(gameRoot(), "icon.png"), "PNG");
+
+    // Sync Arsenal NameProtect JSON into instance config/ (one-way from launcher settings).
+    {
+        QString npError;
+        if (!NameProtect::writeInstanceConfig(gameRoot(), APPLICATION->settings(), session.get(), &npError)) {
+            qWarning() << "NameProtect config sync failed:" << npError;
+        }
+    }
 
     // print a header
     {

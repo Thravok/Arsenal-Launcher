@@ -62,12 +62,11 @@ std::tuple<int, int> map_int_zero_max(T current, T range_max, T range_min)
 ProgressDialog::ProgressDialog(QWidget* parent) : QDialog(parent), ui(new Ui::ProgressDialog)
 {
     ui->setupUi(this);
-    ui->taskProgressScrollArea->setHidden(true);
     this->setWindowFlags(this->windowFlags() & ~Qt::WindowContextHelpButtonHint);
     setAttribute(Qt::WidgetAttribute::WA_QuitOnClose, true);
     changeProgress(0, 100);
-    updateSize(true);
     setSkipButton(false);
+    applyDetailMode();
 }
 
 void ProgressDialog::setSkipButton(bool present, QString label)
@@ -84,8 +83,46 @@ void ProgressDialog::setSkipButton(bool present, QString label)
 void ProgressDialog::on_skipButton_clicked(bool checked)
 {
     Q_UNUSED(checked);
-    if (ui->skipButton->isEnabled())  // prevent other triggers from aborting
+    if (ui->skipButton->isEnabled() && m_task)  // prevent other triggers from aborting
         m_task->abort();
+}
+
+void ProgressDialog::on_viewMoreButton_clicked(bool checked)
+{
+    Q_UNUSED(checked);
+    m_detailed = !m_detailed;
+    applyDetailMode();
+}
+
+void ProgressDialog::applyDetailMode()
+{
+    ui->globalProgressBar->setVisible(m_detailed);
+    ui->viewMoreButton->setText(m_detailed ? tr("View less") : tr("View more"));
+
+    if (m_detailed) {
+        ui->taskProgressScrollArea->setHidden(!m_is_multi_step);
+        const auto details = m_task ? m_task->getDetails().simplified() : ui->globalStatusDetailsLabel->text().simplified();
+        ui->globalStatusDetailsLabel->setVisible(!details.isEmpty());
+    } else {
+        ui->taskProgressScrollArea->setHidden(true);
+        ui->globalStatusDetailsLabel->setVisible(false);
+    }
+
+    updateStatusLabel();
+    updateSize();
+}
+
+void ProgressDialog::updateStatusLabel()
+{
+    if (!m_task)
+        return;
+
+    // Compact multi-step: prefer the active sub-task name over generic "Executing N tasks…"
+    if (!m_detailed && m_is_multi_step && !m_lastStepStatus.isEmpty()) {
+        ui->globalStatusLabel->setText(m_lastStepStatus);
+    } else {
+        ui->globalStatusLabel->setText(m_task->getStatus());
+    }
 }
 
 ProgressDialog::~ProgressDialog()
@@ -100,13 +137,19 @@ void ProgressDialog::updateSize(bool recenterParent)
 {
     QSize lastSize = this->size();
     QPoint lastPos = this->pos();
-    int minHeight = ui->globalStatusDetailsLabel->minimumSize().height() + (ui->verticalLayout->spacing() * 2);
-    minHeight += ui->globalProgressBar->minimumSize().height() + ui->verticalLayout->spacing();
-    if (!ui->taskProgressScrollArea->isHidden())
-        minHeight += ui->taskProgressScrollArea->minimumSizeHint().height() + ui->verticalLayout->spacing();
-    if (ui->skipButton->isVisible())
-        minHeight += ui->skipButton->height() + ui->verticalLayout->spacing();
-    minHeight = std::max(minHeight, 60);
+
+    int minHeight = ui->globalStatusLabel->minimumSize().height() + (ui->verticalLayout->spacing() * 2);
+    minHeight += ui->buttonLayout->sizeHint().height() + ui->verticalLayout->spacing();
+
+    if (m_detailed) {
+        if (ui->globalStatusDetailsLabel->isVisible())
+            minHeight += ui->globalStatusDetailsLabel->minimumSizeHint().height() + ui->verticalLayout->spacing();
+        minHeight += ui->globalProgressBar->minimumSize().height() + ui->verticalLayout->spacing();
+        if (!ui->taskProgressScrollArea->isHidden())
+            minHeight += ui->taskProgressScrollArea->minimumSizeHint().height() + ui->verticalLayout->spacing();
+    }
+
+    minHeight = std::max(minHeight, m_detailed ? 120 : 80);
     QSize minSize = QSize(520, minHeight);
 
     setMinimumSize(minSize);
@@ -150,13 +193,13 @@ int ProgressDialog::execWithTask(Task* task)
     this->m_taskConnections.push_back(connect(task, &Task::details, this, &ProgressDialog::changeStatus));
     this->m_taskConnections.push_back(connect(task, &Task::stepProgress, this, &ProgressDialog::changeStepProgress));
     this->m_taskConnections.push_back(connect(task, &Task::progress, this, &ProgressDialog::changeProgress));
-    this->m_taskConnections.push_back(connect(task, &Task::aborted, this, &ProgressDialog::hide));
+    this->m_taskConnections.push_back(connect(task, &Task::aborted, this, [this] { onTaskFailed({}); }));
     this->m_taskConnections.push_back(connect(task, &Task::abortStatusChanged, ui->skipButton, &QPushButton::setEnabled));
     this->m_taskConnections.push_back(connect(task, &Task::abortButtonTextChanged, ui->skipButton, &QPushButton::setText));
 
     m_is_multi_step = task->isMultiStep();
-    ui->taskProgressScrollArea->setHidden(!m_is_multi_step);
-    updateSize();
+    m_lastStepStatus.clear();
+    applyDetailMode();
 
     // It's a good idea to start the task after we entered the dialog's event loop :^)
     if (!task->isRunning()) {
@@ -215,15 +258,18 @@ void ProgressDialog::onTaskSucceeded()
 
 void ProgressDialog::changeStatus([[maybe_unused]] const QString& status)
 {
-    ui->globalStatusLabel->setText(m_task->getStatus());
+    updateStatusLabel();
     ui->globalStatusLabel->adjustSize();
 
     const auto details = m_task->getDetails().simplified();
     ui->globalStatusDetailsLabel->setText(details);
-    ui->globalStatusDetailsLabel->setVisible(!details.isEmpty());
-    ui->globalStatusDetailsLabel->adjustSize();
+    ui->globalStatusDetailsLabel->setVisible(m_detailed && !details.isEmpty());
+    if (m_detailed)
+        ui->globalStatusDetailsLabel->adjustSize();
 
-    updateSize();
+    // Avoid resize spam in compact mode — status text length changes constantly.
+    if (m_detailed)
+        updateSize();
 }
 
 void ProgressDialog::addTaskProgress(TaskStepProgress const& progress)
@@ -251,7 +297,14 @@ void ProgressDialog::addTaskProgress(TaskStepProgress const& progress)
 void ProgressDialog::changeStepProgress(TaskStepProgress const& task_progress)
 {
     m_is_multi_step = true;
-    if (ui->taskProgressScrollArea->isHidden()) {
+
+    if (!task_progress.status.isEmpty() && !task_progress.isDone()) {
+        m_lastStepStatus = task_progress.status;
+        if (!m_detailed)
+            ui->globalStatusLabel->setText(m_lastStepStatus);
+    }
+
+    if (m_detailed && ui->taskProgressScrollArea->isHidden()) {
         ui->taskProgressScrollArea->setHidden(false);
         updateSize();
     }

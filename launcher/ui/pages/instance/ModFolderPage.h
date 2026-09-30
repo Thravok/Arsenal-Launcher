@@ -52,7 +52,8 @@ class ModFolderPage : public ExternalResourcesPage {
                            ModFolderModel* model,
                            QWidget* parent = nullptr,
                            bool offerBaritoneInstall = false,
-                           bool offerMeteorAddons = false);
+                           bool offerMeteorAddons = false,
+                           bool offerAnarchyUtils = false);
     virtual ~ModFolderPage() = default;
 
     void setFilter(const QString& filter) { m_fileSelectionFilter = filter; }
@@ -78,12 +79,14 @@ class ModFolderPage : public ExternalResourcesPage {
     void changeModVersion();
     void installBaritone();
     void installMeteorAddons();
+    void installAnarchyUtils();
     void updateActions() override;
 
    protected:
     ModFolderModel* m_model;
     QAction* m_installBaritoneAction = nullptr;
     QAction* m_installMeteorAddonsAction = nullptr;
+    QAction* m_installAnarchyUtilsAction = nullptr;
     bool m_offerMeteorAddons = false;
     QPointer<ResourceDownload::ResourceDownloadDialog> m_downloadDialog;
 };

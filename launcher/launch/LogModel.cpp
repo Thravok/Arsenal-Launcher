@@ -32,28 +32,54 @@ QVariant LogModel::data(const QModelIndex& index, int role) const
 
 void LogModel::append(MessageLevel level, QString line)
 {
-    if (m_suspended) {
+    append({ { level, std::move(line) } });
+}
+
+void LogModel::append(const QList<QPair<MessageLevel, QString>>& lines)
+{
+    if (m_suspended || lines.isEmpty()) {
         return;
     }
-    int lineNum = (m_firstLine + m_numLines) % m_maxLines;
-    // overflow
-    if (m_numLines == m_maxLines) {
-        if (m_stopOnOverflow) {
-            // nothing more to do, the buffer is full
+
+    QList<QPair<MessageLevel, QString>> toAdd = lines;
+
+    if (m_stopOnOverflow) {
+        const int room = m_maxLines - m_numLines;
+        if (room <= 0) {
             return;
         }
-        beginRemoveRows(QModelIndex(), 0, 0);
-        m_firstLine = (m_firstLine + 1) % m_maxLines;
-        m_numLines--;
-        endRemoveRows();
-    } else if (m_numLines == m_maxLines - 1 && m_stopOnOverflow) {
-        level = MessageLevel::Fatal;
-        line = m_overflowMessage;
+        if (toAdd.size() > room) {
+            toAdd = toAdd.mid(0, room);
+        }
+        if (m_numLines + toAdd.size() >= m_maxLines) {
+            toAdd.last() = { MessageLevel::Fatal, m_overflowMessage };
+        }
+    } else if (m_numLines + toAdd.size() > m_maxLines) {
+        const int removeCount = qMin(m_numLines, m_numLines + toAdd.size() - m_maxLines);
+        if (removeCount > 0) {
+            beginRemoveRows(QModelIndex(), 0, removeCount - 1);
+            m_firstLine = (m_firstLine + removeCount) % m_maxLines;
+            m_numLines -= removeCount;
+            endRemoveRows();
+        }
+        if (toAdd.size() > m_maxLines) {
+            toAdd = toAdd.mid(toAdd.size() - m_maxLines);
+        }
     }
-    beginInsertRows(QModelIndex(), m_numLines, m_numLines);
-    m_numLines++;
-    m_content[lineNum].level = level;
-    m_content[lineNum].line = line;
+
+    if (toAdd.isEmpty()) {
+        return;
+    }
+
+    const int first = m_numLines;
+    const int last = m_numLines + toAdd.size() - 1;
+    beginInsertRows(QModelIndex(), first, last);
+    for (const auto& entry : toAdd) {
+        const int lineNum = (m_firstLine + m_numLines) % m_maxLines;
+        m_content[lineNum].level = entry.first;
+        m_content[lineNum].line = entry.second;
+        m_numLines++;
+    }
     endInsertRows();
 }
 

@@ -101,6 +101,9 @@ class AccountList : public QAbstractListModel {
     bool loadV3(QJsonObject& root);
     bool saveList();
 
+    /** Notify views that profile name display may have changed (e.g. masking). */
+    void refreshDisplayNames();
+
     MinecraftAccountPtr defaultAccount() const;
     void setDefaultAccount(MinecraftAccountPtr profileId);
     bool anyAccountIsValid();

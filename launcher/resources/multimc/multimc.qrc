@@ -345,6 +345,7 @@
         <file>128x128/instances/wurst.png</file>
         <file>32x32/instances/fdp.png</file>
         <file>128x128/instances/fdp.png</file>
+        <file>scalable/instances/epsilon.svg</file>
 
     </qresource>
 </RCC>

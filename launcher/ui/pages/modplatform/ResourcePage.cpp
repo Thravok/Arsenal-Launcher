@@ -108,6 +108,8 @@ ResourcePage::ResourcePage(ResourceDownloadDialog* parent,
 
     auto* delegate = new ProjectItemDelegate(this);
     m_ui->packView->setItemDelegate(delegate);
+    m_ui->packView->setSpacing(4);
+    m_ui->packView->setUniformItemSizes(true);
     m_ui->packView->installEventFilter(this);
     m_ui->packView->viewport()->installEventFilter(this);
 

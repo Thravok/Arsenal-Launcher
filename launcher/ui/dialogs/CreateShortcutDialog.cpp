@@ -106,7 +106,7 @@ CreateShortcutDialog::CreateShortcutDialog(MinecraftInstance* instance, QWidget*
     } else {
         for (int i = 0; i < accounts->count(); i++) {
             MinecraftAccountPtr account = accounts->at(i);
-            auto profileLabel = account->profileName();
+            auto profileLabel = account->displayName();
             if (account->isInUse())
                 profileLabel = tr("%1 (in use)").arg(profileLabel);
             auto face = account->getFace();

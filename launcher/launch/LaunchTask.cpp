@@ -242,6 +242,8 @@ bool LaunchTask::parseXmlLogs(const QString& line, MessageLevel level)
         return true;
 
     auto model = getLogModel();
+    QList<QPair<MessageLevel, QString>> batch;
+    batch.reserve(static_cast<int>(items.size()));
     for (const auto& item : items) {
         if (std::holds_alternative<LogParser::LogEntry>(item)) {
             auto entry = std::get<LogParser::LogEntry>(item);
@@ -252,29 +254,95 @@ bool LaunchTask::parseXmlLogs(const QString& line, MessageLevel level)
                            .arg(entry.logger)
                            .arg(entry.message);
             msg = censorPrivateInfo(msg);
-            model->append(entry.level, msg);
+            batch.append({ entry.level, msg });
         } else if (std::holds_alternative<LogParser::PlainText>(item)) {
             auto msg = std::get<LogParser::PlainText>(item).message;
 
             MessageLevel newLevel = MessageLevel::takeFromLine(msg);
 
-            if (newLevel == MessageLevel::Unknown)
-                newLevel = LogParser::guessLevel(line, model->previousLevel());
+            if (newLevel == MessageLevel::Unknown) {
+                const auto prev =
+                    batch.isEmpty() ? model->previousLevel() : static_cast<MessageLevel>(batch.last().first);
+                newLevel = LogParser::guessLevel(line, prev);
+            }
 
             msg = censorPrivateInfo(msg);
-
-            model->append(newLevel, msg);
+            batch.append({ newLevel, msg });
         }
     }
+    model->append(batch);
 
     return true;
 }
 
 void LaunchTask::onLogLines(const QStringList& lines, MessageLevel defaultLevel)
 {
-    for (auto& line : lines) {
-        onLogLine(line, defaultLevel);
+    if (lines.isEmpty()) {
+        return;
     }
+
+    LogParser* parser = nullptr;
+    switch (static_cast<MessageLevel::Enum>(defaultLevel)) {
+        case MessageLevel::StdErr:
+            parser = &m_stderrParser;
+            break;
+        case MessageLevel::StdOut:
+            parser = &m_stdoutParser;
+            break;
+        default:
+            break;
+    }
+
+    if (!parser) {
+        QList<QPair<MessageLevel, QString>> batch;
+        batch.reserve(lines.size());
+        for (auto line : lines) {
+            line = censorPrivateInfo(line);
+            batch.append({ defaultLevel, line });
+        }
+        getLogModel()->append(batch);
+        return;
+    }
+
+    // Feed the whole burst through the log4j parser, then one model insert.
+    auto model = getLogModel();
+    QList<QPair<MessageLevel, QString>> batch;
+    batch.reserve(lines.size());
+    MessageLevel prevLevel = model->previousLevel();
+
+    for (const auto& line : lines) {
+        parser->appendLine(line);
+        auto items = parser->parseAvailable();
+        if (auto err = parser->getError(); err.has_value()) {
+            batch.append({ MessageLevel::Error,
+                           tr("[Log4j Parse Error] Failed to parse log4j log event: %1").arg(err.value().errMessage) });
+            batch.append({ defaultLevel, censorPrivateInfo(line) });
+            continue;
+        }
+        for (const auto& item : items) {
+            if (std::holds_alternative<LogParser::LogEntry>(item)) {
+                auto entry = std::get<LogParser::LogEntry>(item);
+                auto msg = QString("[%1] [%2/%3] [%4]: %5")
+                               .arg(entry.timestamp.toString("HH:mm:ss"))
+                               .arg(entry.thread)
+                               .arg(entry.levelText)
+                               .arg(entry.logger)
+                               .arg(entry.message);
+                msg = censorPrivateInfo(msg);
+                batch.append({ entry.level, msg });
+                prevLevel = entry.level;
+            } else if (std::holds_alternative<LogParser::PlainText>(item)) {
+                auto msg = std::get<LogParser::PlainText>(item).message;
+                MessageLevel newLevel = MessageLevel::takeFromLine(msg);
+                if (newLevel == MessageLevel::Unknown)
+                    newLevel = LogParser::guessLevel(line, prevLevel);
+                msg = censorPrivateInfo(msg);
+                batch.append({ newLevel, msg });
+                prevLevel = newLevel;
+            }
+        }
+    }
+    model->append(batch);
 }
 
 void LaunchTask::onLogLine(QString line, MessageLevel level)

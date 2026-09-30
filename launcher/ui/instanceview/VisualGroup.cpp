@@ -69,7 +69,7 @@ void VisualGroup::update()
             if (currentRow >= rows.size()) {
                 currentRow = rows.size() - 1;
             }
-            offsetFromTop += maxRowHeight + 5;
+            offsetFromTop += maxRowHeight + view->m_spacing;
             positionInRow = 0;
             maxRowHeight = 0;
         }
@@ -151,7 +151,7 @@ void VisualGroup::drawHeader(QPainter* painter, const QStyleOptionViewItem& opti
     QPen pen;
     pen.setWidth(2);
     QColor penColor = option.palette.text().color();
-    penColor.setAlphaF(0.6f);
+    penColor.setAlphaF(0.88f);
     pen.setColor(penColor);
     painter->setPen(pen);
     painter->setRenderHint(QPainter::Antialiasing);
@@ -194,7 +194,7 @@ void VisualGroup::drawHeader(QPainter* painter, const QStyleOptionViewItem& opti
 
     // BEGIN: horizontal line
     {
-        penColor.setAlphaF(0.05f);
+        penColor.setAlphaF(0.28f);
         pen.setColor(penColor);
         painter->setPen(pen);
         // startPoint is left + arrow + text + space
@@ -222,7 +222,7 @@ int VisualGroup::headerHeight()
     QFontMetrics fontMetrics(font);
 
     const int height = fontMetrics.height() + 1 /* 1 pixel-width gradient */
-                       + 11 /* top and bottom separation */;
+                       + 8 /* top and bottom separation */;
     return height;
     /*
     int raw = view->viewport()->fontMetrics().height() + 4;

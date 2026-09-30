@@ -80,15 +80,20 @@ endif()
 configure_file(win_install.nsi.in win_install.nsi @ONLY)
 
 if(SCDOC_FOUND)
-    configure_file(${Launcher_APP_BINARY_NAME}.6.scd.in ${Launcher_APP_BINARY_NAME}.6.scd @ONLY)
+    set(_arsenal_scd_in "${CMAKE_CURRENT_SOURCE_DIR}/${Launcher_APP_BINARY_NAME}.6.scd.in")
+    if(EXISTS "${_arsenal_scd_in}")
+        configure_file(${Launcher_APP_BINARY_NAME}.6.scd.in ${Launcher_APP_BINARY_NAME}.6.scd @ONLY)
 
-    set(in_scd "${CMAKE_CURRENT_BINARY_DIR}/${Launcher_APP_BINARY_NAME}.6.scd")
-    set(out_man "${CMAKE_CURRENT_BINARY_DIR}/${Launcher_APP_BINARY_NAME}.6")
-    add_custom_command(
-        DEPENDS "${in_scd}"
-        OUTPUT "${out_man}"
-        COMMAND ${SCDOC_SCDOC} < "${in_scd}" > "${out_man}"
-    )
-    add_custom_target(man ALL DEPENDS ${out_man})
-    set(Launcher_ManPage "program_info/${Launcher_APP_BINARY_NAME}.6" PARENT_SCOPE)
+        set(in_scd "${CMAKE_CURRENT_BINARY_DIR}/${Launcher_APP_BINARY_NAME}.6.scd")
+        set(out_man "${CMAKE_CURRENT_BINARY_DIR}/${Launcher_APP_BINARY_NAME}.6")
+        add_custom_command(
+            DEPENDS "${in_scd}"
+            OUTPUT "${out_man}"
+            COMMAND ${SCDOC_SCDOC} < "${in_scd}" > "${out_man}"
+        )
+        add_custom_target(man ALL DEPENDS ${out_man})
+        set(Launcher_ManPage "program_info/${Launcher_APP_BINARY_NAME}.6" PARENT_SCOPE)
+    else()
+        message(WARNING "scdoc found but ${_arsenal_scd_in} is missing; skipping man page")
+    endif()
 endif()

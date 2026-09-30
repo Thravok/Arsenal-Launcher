@@ -41,6 +41,7 @@
 
 #include <QAction>
 #include <QDialogButtonBox>
+#include <QFrame>
 #include <QGridLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -57,11 +58,6 @@
 #include <QVBoxLayout>
 #include <utility>
 
-#include "settings/SettingsObject.h"
-
-#include "ui/widgets/IconLabel.h"
-
-#include "Application.h"
 #include "DesktopServices.h"
 
 class PageEntryFilterModel : public QSortFilterProxyModel {
@@ -187,9 +183,12 @@ void PageContainer::refreshContainer()
 
 void PageContainer::createUI()
 {
+    setObjectName(QStringLiteral("pageContainer"));
+
     m_pageStack = new QStackedLayout;
     m_pageList = new PageView;
     m_header = new QLabel();
+    m_header->setObjectName(QStringLiteral("pageHeader"));
 
     QFont headerLabelFont = m_header->font();
     headerLabelFont.setBold(true);
@@ -199,19 +198,35 @@ void PageContainer::createUI()
     }
     m_header->setFont(headerLabelFont);
 
-    auto* headerHLayout = new QHBoxLayout;
-    const int leftMargin = APPLICATION->style()->pixelMetric(QStyle::PM_LayoutLeftMargin);
-    headerHLayout->addSpacerItem(new QSpacerItem(leftMargin, 0, QSizePolicy::Fixed, QSizePolicy::Ignored));
-    headerHLayout->addWidget(m_header);
-    headerHLayout->setContentsMargins(0, 6, 0, 0);
+    m_headerBar = new QFrame(this);
+    m_headerBar->setObjectName(QStringLiteral("pageHeaderBar"));
+    auto* headerHLayout = new QHBoxLayout(m_headerBar);
+    headerHLayout->setContentsMargins(16, 12, 16, 10);
+    headerHLayout->setSpacing(8);
+    headerHLayout->addWidget(m_header, 1);
 
     m_pageStack->setContentsMargins(0, 0, 0, 0);
     m_pageStack->addWidget(new QWidget(this));
 
-    m_sidebarColumn = new QWidget(this);
+    m_contentWell = new QFrame(this);
+    m_contentWell->setObjectName(QStringLiteral("pageContentWell"));
+    auto* contentLayout = new QVBoxLayout(m_contentWell);
+    contentLayout->setContentsMargins(12, 8, 12, 12);
+    contentLayout->setSpacing(0);
+    contentLayout->addLayout(m_pageStack, 1);
+
+    m_sidebarColumn = new QFrame(this);
+    m_sidebarColumn->setObjectName(QStringLiteral("pageSidebar"));
     auto* sidebarLayout = new QVBoxLayout(m_sidebarColumn);
-    sidebarLayout->setContentsMargins(0, 0, 0, 0);
-    sidebarLayout->setSpacing(4);
+    sidebarLayout->setContentsMargins(8, 10, 8, 10);
+    sidebarLayout->setSpacing(8);
+
+    m_pageFilter = new QLineEdit(m_sidebarColumn);
+    m_pageFilter->setObjectName(QStringLiteral("pageFilter"));
+    m_pageFilter->setClearButtonEnabled(true);
+    m_pageFilter->setPlaceholderText(tr("Search pages…"));
+    connect(m_pageFilter, &QLineEdit::textChanged, this, [this](const QString& text) { m_proxyModel->setFilterFixedString(text); });
+    sidebarLayout->addWidget(m_pageFilter);
     sidebarLayout->addWidget(m_pageList, 1);
 
     m_morePlatformsButton = new QToolButton(m_sidebarColumn);
@@ -227,11 +242,13 @@ void PageContainer::createUI()
     m_morePlatformsButton->setMenu(m_morePlatformsMenu);
 
     m_layout = new QGridLayout;
-    m_layout->addLayout(headerHLayout, 0, 1, 1, 1);
     m_layout->addWidget(m_sidebarColumn, 0, 0, 3, 1);
-    m_layout->addLayout(m_pageStack, 1, 1, 1, 1);
+    m_layout->addWidget(m_headerBar, 0, 1, 1, 1);
+    m_layout->addWidget(m_contentWell, 1, 1, 1, 1);
     m_layout->setColumnStretch(1, 4);
+    m_layout->setRowStretch(1, 1);
     m_layout->setContentsMargins(0, 0, 0, 0);
+    m_layout->setSpacing(0);
     setLayout(m_layout);
 }
 
@@ -239,6 +256,9 @@ void PageContainer::retranslate()
 {
     if (m_currentPage) {
         m_header->setText(m_currentPage->displayName());
+    }
+    if (m_pageFilter) {
+        m_pageFilter->setPlaceholderText(tr("Search pages…"));
     }
 
     for (auto* page : m_model->pages()) {

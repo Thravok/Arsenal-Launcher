@@ -18,8 +18,15 @@ class ReviewMessageBox : public QDialog {
         QString filename;
         QString provider;
         QStringList required_by;
+        /** Version number / label (e.g. 1.2.3). Shown as "Version: …". */
+        QString version;
+        /** Channel / type (e.g. release, beta). Shown as "Version Type: …". */
         QString version_type;
         bool enabled = true;
+        /** If set, returned by deselectedResources() instead of name (e.g. projectId). */
+        QString deselectKey;
+        /** Optional tooltip on the resource row (overrides the default disabled tip). */
+        QString tooltip;
     };
 
     void appendResource(ResourceInformation&& info);

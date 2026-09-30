@@ -21,6 +21,7 @@ class ProjectItemDelegate final : public QStyledItemDelegate {
     ProjectItemDelegate(QWidget* parent);
 
     void paint(QPainter*, const QStyleOptionViewItem&, const QModelIndex&) const override;
+    QSize sizeHint(const QStyleOptionViewItem& option, const QModelIndex& index) const override;
 
     bool editorEvent(QEvent* event, QAbstractItemModel* model, const QStyleOptionViewItem& option, const QModelIndex& index) override;
 

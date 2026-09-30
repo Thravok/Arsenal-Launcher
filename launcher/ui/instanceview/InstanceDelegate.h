@@ -33,6 +33,10 @@ class ListViewDelegate : public QStyledItemDelegate {
     void setEditorData(QWidget* editor, const QModelIndex& index) const override;
     void setModelData(QWidget* editor, QAbstractItemModel* model, const QModelIndex& index) const override;
 
+    static QRect playButtonRect(const QRect& itemRect);
+    static bool hitPlayButton(const QRect& itemRect, const QPoint& pos);
+    static int preferredItemWidth();
+
    signals:
     void textChanged(QString before, QString after) const;
 

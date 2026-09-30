@@ -65,8 +65,13 @@ bool isSchemeHandlerRegistered()
 
     const QString registeredRunCommand = settings.value("shell/open/command/.").toString().replace("\\", "/");
     return registeredRunCommand.contains(QCoreApplication::applicationFilePath());
-#endif
+#elif defined(Q_OS_MACOS)
+    // Prefer Qt's localhost HTTP callback on macOS. The custom arsenal:// scheme can
+    // activate the app without completing OAuth while MSALoginDialog is modal.
+    return false;
+#else
     return true;
+#endif
 }
 
 class CustomOAuthOobReplyHandler : public QOAuthOobReplyHandler {

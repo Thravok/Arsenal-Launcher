@@ -277,10 +277,16 @@ set(MINECRAFT_SOURCES
     minecraft/launch/AutoInstallJava.h
     minecraft/launch/ConfigureAuthlibInjector.cpp
     minecraft/launch/ConfigureAuthlibInjector.h
+
+    minecraft/NameProtectConfig.cpp
+    minecraft/NameProtectConfig.h
+
     minecraft/launch/TheAlteningAuthlibProxy.cpp
     minecraft/launch/TheAlteningAuthlibProxy.h
 
     hackclients/HackClientTypes.h
+    hackclients/HackClientCatalog.h
+    hackclients/HackClientCatalog.cpp
     hackclients/HackClientsMeta.h
     hackclients/HackClientsMeta.cpp
     hackclients/ImpactReleasesProvider.h
@@ -293,6 +299,8 @@ set(MINECRAFT_SOURCES
     hackclients/LambdaProvider.cpp
     hackclients/FDPProvider.h
     hackclients/FDPProvider.cpp
+    hackclients/EpsilonProvider.h
+    hackclients/EpsilonProvider.cpp
     hackclients/ImpactInstallTask.h
     hackclients/ImpactInstallTask.cpp
     hackclients/LiquidBounceInstallTask.h
@@ -307,6 +315,8 @@ set(MINECRAFT_SOURCES
     hackclients/WurstInstallTask.cpp
     hackclients/FDPInstallTask.h
     hackclients/FDPInstallTask.cpp
+    hackclients/EpsilonInstallTask.h
+    hackclients/EpsilonInstallTask.cpp
     hackclients/BaritoneMaven.h
     hackclients/BaritoneMaven.cpp
     hackclients/BaritoneProvider.h
@@ -319,6 +329,16 @@ set(MINECRAFT_SOURCES
     hackclients/MeteorAddonsProvider.cpp
     hackclients/MeteorAddonInstallTask.h
     hackclients/MeteorAddonInstallTask.cpp
+    hackclients/AnarchyUtilityCatalog.h
+    hackclients/AnarchyUtilityCatalog.cpp
+    hackclients/AnarchyUtilityInstallTask.h
+    hackclients/AnarchyUtilityInstallTask.cpp
+    hackclients/AnarchyUtilityInstallFlow.h
+    hackclients/AnarchyUtilityInstallFlow.cpp
+    hackclients/ArsenalUtilitiesInstall.h
+    hackclients/ArsenalUtilitiesInstall.cpp
+    hackclients/ModrinthModDependencyResolver.h
+    hackclients/ModrinthModDependencyResolver.cpp
     hackclients/HackClientInstanceDetect.h
     hackclients/HackClientInstanceDetect.cpp
 
@@ -1069,6 +1089,8 @@ SET(LAUNCHER_SOURCES
 
     ui/pages/global/AlteningSettingsPage.cpp
     ui/pages/global/AlteningSettingsPage.h
+    ui/pages/global/NameProtectPage.cpp
+    ui/pages/global/NameProtectPage.h
 
     ui/LaunchAccountUtils.cpp
     ui/LaunchAccountUtils.h
@@ -1136,6 +1158,8 @@ SET(LAUNCHER_SOURCES
     ui/dialogs/ChooseProviderDialog.cpp
     ui/dialogs/MeteorAddonsDialog.h
     ui/dialogs/MeteorAddonsDialog.cpp
+    ui/dialogs/AnarchyUtilsDialog.h
+    ui/dialogs/AnarchyUtilsDialog.cpp
     ui/dialogs/ResourceUpdateDialog.cpp
     ui/dialogs/ResourceUpdateDialog.h
     ui/dialogs/InstallLoaderDialog.cpp

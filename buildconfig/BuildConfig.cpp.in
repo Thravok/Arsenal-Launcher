@@ -134,11 +134,17 @@ QString Config::printableVersionString() const
 {
     QString vstr = versionString();
 
-    // If the build is not a main release, append the channel
-    if (VERSION_CHANNEL != "stable" && GIT_TAG != vstr) {
+    // If the build is not a public release, append the channel
+    if (!isPublicRelease() && VERSION_CHANNEL != "stable") {
         vstr += "-" + VERSION_CHANNEL;
     }
     return vstr;
+}
+
+bool Config::isPublicRelease() const
+{
+    const QString vstr = versionString();
+    return GIT_TAG == vstr || GIT_TAG == QStringLiteral("v") + vstr;
 }
 
 QString Config::compilerID() const

@@ -41,6 +41,10 @@ tags
 #OSX Stuff
 .DS_Store
 
+# Sparkle private signing keys (public key lives in CMakeLists.txt)
+arsenal-sparkle-ed25519.pem
+*-sparkle-ed25519.pem
+
 branding/
 secrets/
 run/

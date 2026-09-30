@@ -17,18 +17,18 @@ namespace ThemeTokens {
 Tokens dark()
 {
     Tokens t;
-    t.window = QColor(0x0b, 0x0e, 0x14, 210);
-    t.windowText = QColor(0xe8, 0xea, 0xed);
-    t.base = QColor(0x0f, 0x13, 0x1a);
-    t.alternateBase = QColor(0x1c, 0x23, 0x30, 160);
-    t.elevated = QColor(0x16, 0x1b, 0x24);
-    t.border = QColor(0x2a, 0x35, 0x48);
-    t.mutedText = QColor(0x8b, 0x95, 0xa8);
-    t.toolTipBase = QColor(0x16, 0x1b, 0x24, 230);
+    t.window = QColor(0x0a, 0x0b, 0x0e, 255);
+    t.windowText = QColor(0xee, 0xf1, 0xf6);
+    t.base = QColor(0x12, 0x14, 0x1a);
+    t.alternateBase = QColor(0x1a, 0x1d, 0x26, 255);
+    t.elevated = QColor(0x14, 0x16, 0x1c);
+    t.border = QColor(0x2a, 0x2f, 0x3a);
+    t.mutedText = QColor(0x8b, 0x93, 0xa7);
+    t.toolTipBase = QColor(0x16, 0x1b, 0x24, 240);
     t.toolTipText = QColor(0xf0, 0xf2, 0xf5);
     t.text = QColor(0xe8, 0xea, 0xed);
-    t.button = QColor(0x1c, 0x23, 0x30, 200);
-    t.buttonText = QColor(0xe8, 0xea, 0xed);
+    t.button = QColor(0x18, 0x1b, 0x22, 255);
+    t.buttonText = QColor(0xee, 0xf1, 0xf6);
     t.brightText = QColor(0xff, 0x6b, 0x6b);
     t.link = QColor(0x5b, 0x8c, 0xff);
     t.accent = QColor(0xc4, 0x1e, 0x3a);
@@ -37,34 +37,38 @@ Tokens dark()
     t.highlightedText = QColor(0xff, 0xff, 0xff);
     t.placeholderText = QColor(0x6b, 0x72, 0x80);
     t.danger = QColor(0xe0, 0x5a, 0x5a);
+    t.dangerHover = QColor(0xec, 0x6e, 0x6e);
     t.success = QColor(0x2f, 0xbf, 0x71);
-    t.fade = QColor(0x0b, 0x0e, 0x14);
+    t.successHover = QColor(0x39, 0xc9, 0x7a);
+    t.fade = QColor(0x0a, 0x0b, 0x0e);
     t.fadeAmount = 0.45;
 
-    t.glassFill = QColor(0x0f, 0x13, 0x1a, 180);
-    t.glassElevated = QColor(0x16, 0x1b, 0x24, 200);
-    t.glassBorder = QColor(255, 255, 255, 28);
-    t.glassHighlight = QColor(255, 255, 255, 48);
+    // Flat dark slabs (Lunar-like) — opaque, low-contrast edges
+    t.glassWell = QColor(0x0c, 0x0e, 0x12, 255);
+    t.glassFill = QColor(0x16, 0x19, 0x20, 255);
+    t.glassElevated = QColor(0x14, 0x16, 0x1c, 255);
+    t.glassBorder = QColor(0x2a, 0x2f, 0x3a, 255);
+    t.glassHighlight = QColor(0x2a, 0x2f, 0x3a, 180);
 
-    t.radius = 14;
+    t.radius = 12;
     return t;
 }
 
 Tokens bright()
 {
     Tokens t;
-    t.window = QColor(0xf4, 0xf5, 0xf7, 220);
-    t.windowText = QColor(0x1a, 0x1d, 0x23);
+    t.window = QColor(0xdc, 0xe0, 0xe8, 245);
+    t.windowText = QColor(0x16, 0x1a, 0x22);
     t.base = QColor(0xff, 0xff, 0xff);
-    t.alternateBase = QColor(0xee, 0xf0, 0xf4, 180);
+    t.alternateBase = QColor(0xe8, 0xec, 0xf2, 230);
     t.elevated = QColor(0xff, 0xff, 0xff);
-    t.border = QColor(0xd0, 0xd5, 0xde);
-    t.mutedText = QColor(0x5c, 0x64, 0x72);
+    t.border = QColor(0xb4, 0xbc, 0xc8);
+    t.mutedText = QColor(0x4e, 0x57, 0x66);
     t.toolTipBase = QColor(0x2a, 0x2f, 0x38, 235);
     t.toolTipText = QColor(0xf0, 0xf2, 0xf5);
     t.text = QColor(0x1a, 0x1d, 0x23);
-    t.button = QColor(0xee, 0xf0, 0xf4, 220);
-    t.buttonText = QColor(0x1a, 0x1d, 0x23);
+    t.button = QColor(0xff, 0xff, 0xff, 245);
+    t.buttonText = QColor(0x16, 0x1a, 0x22);
     t.brightText = QColor(0xc0, 0x3a, 0x3a);
     t.link = QColor(0x3d, 0x6b, 0xd9);
     t.accent = QColor(0xc4, 0x1e, 0x3a);
@@ -73,14 +77,17 @@ Tokens bright()
     t.highlightedText = QColor(0xff, 0xff, 0xff);
     t.placeholderText = QColor(0x8a, 0x92, 0xa0);
     t.danger = QColor(0xc0, 0x3a, 0x3a);
+    t.dangerHover = QColor(0xd4, 0x4a, 0x4a);
     t.success = QColor(0x28, 0xa7, 0x5e);
+    t.successHover = QColor(0x32, 0xc0, 0x70);
     t.fade = QColor(0xf4, 0xf5, 0xf7);
     t.fadeAmount = 0.5;
 
-    t.glassFill = QColor(255, 255, 255, 200);
-    t.glassElevated = QColor(255, 255, 255, 220);
-    t.glassBorder = QColor(0, 0, 0, 22);
-    t.glassHighlight = QColor(255, 255, 255, 180);
+    t.glassWell = QColor(0xd0, 0xd5, 0xde, 240);
+    t.glassFill = QColor(0xf4, 0xf6, 0xfa, 240);
+    t.glassElevated = QColor(255, 255, 255, 250);
+    t.glassBorder = QColor(0, 0, 0, 48);
+    t.glassHighlight = QColor(255, 255, 255, 200);
 
     t.radius = 14;
     return t;
@@ -150,7 +157,10 @@ QString substitute(const QString& stylesheetTemplate, const Tokens& t)
     replaceColor(out, QStringLiteral("toolTipText"), t.toolTipText);
     replaceColor(out, QStringLiteral("placeholderText"), t.placeholderText);
     replaceColor(out, QStringLiteral("danger"), t.danger);
+    replaceColor(out, QStringLiteral("dangerHover"), t.dangerHover);
     replaceColor(out, QStringLiteral("success"), t.success);
+    replaceColor(out, QStringLiteral("successHover"), t.successHover);
+    replaceColor(out, QStringLiteral("glassWell"), t.glassWell);
     replaceColor(out, QStringLiteral("glassFill"), t.glassFill);
     replaceColor(out, QStringLiteral("glassElevated"), t.glassElevated);
     replaceColor(out, QStringLiteral("glassBorder"), t.glassBorder);

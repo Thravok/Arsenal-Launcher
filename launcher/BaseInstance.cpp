@@ -305,11 +305,15 @@ void BaseInstance::setMinecraftRunning(bool running)
         QDateTime timeEnded = QDateTime::currentDateTime();
         qint64 secondsPlayed = m_timeStarted.secsTo(timeEnded);
 
-        qint64 current = settings()->get("totalTimePlayed").toLongLong();
-        settings()->set("totalTimePlayed", current + secondsPlayed);
-        settings()->set("lastTimePlayed", secondsPlayed);
+        {
+            SettingsObject::Lock lock(settings());
+            qint64 current = settings()->get("totalTimePlayed").toLongLong();
+            settings()->set("totalTimePlayed", current + secondsPlayed);
+            settings()->set("lastTimePlayed", secondsPlayed);
+        }
 
         if (countTimePlayed()) {
+            SettingsObject::Lock lock(APPLICATION->playtimeSettings());
             qint64 globalTotal = APPLICATION->playtimeSettings()->get("TotalPlayTime").toLongLong();
             APPLICATION->playtimeSettings()->set("TotalPlayTime", globalTotal + secondsPlayed);
         }

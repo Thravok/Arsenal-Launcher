@@ -40,6 +40,7 @@
 #include "ui_MinecraftSettingsWidget.h"
 
 #include <QFileDialog>
+#include <QPushButton>
 #include "Application.h"
 #include "BuildConfig.h"
 #include "Json.h"
@@ -56,7 +57,7 @@ MinecraftSettingsWidget::MinecraftSettingsWidget(MinecraftInstance* instance, QW
     if (m_instance == nullptr) {
         m_ui->settingsTabs->removeTab(1);
 
-        m_ui->openGlobalSettingsButton->setVisible(false);
+        m_ui->openGlobalSettingsRow->setVisible(false);
         m_ui->instanceAccountGroupBox->hide();
         m_ui->serverJoinGroupBox->hide();
         m_ui->globalDataPacksGroupBox->hide();
@@ -98,7 +99,7 @@ MinecraftSettingsWidget::MinecraftSettingsWidget(MinecraftInstance* instance, QW
             m_ui->serverJoinAddressButton->setStyleSheet("QRadioButton::indicator { width: 0px; height: 0px; }");
         }
 
-        connect(m_ui->openGlobalSettingsButton, &QCommandLinkButton::clicked, this, &MinecraftSettingsWidget::openGlobalSettings);
+        connect(m_ui->openGlobalSettingsButton, &QPushButton::clicked, this, &MinecraftSettingsWidget::openGlobalSettings);
         connect(m_ui->serverJoinAddressButton, &QAbstractButton::toggled, m_ui->serverJoinAddress, &QWidget::setEnabled);
         connect(m_ui->worldJoinButton, &QAbstractButton::toggled, m_ui->worldsCb, &QWidget::setEnabled);
 
@@ -547,7 +548,7 @@ void MinecraftSettingsWidget::updateAccountsMenu(SettingsObject& settings)
         if (face.isNull())
             face = QIcon::fromTheme("noaccount");
 
-        m_ui->instanceAccountSelector->addItem(face, account->profileName(), i);
+        m_ui->instanceAccountSelector->addItem(face, account->displayName(), i);
         if (i == accountIndex)
             m_ui->instanceAccountSelector->setCurrentIndex(i);
     }
