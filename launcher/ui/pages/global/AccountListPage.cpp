@@ -120,9 +120,10 @@ void AccountListPage::migrateAlteningApiKeyFromAccounts()
         if (!account) {
             continue;
         }
-        auto* data = account->accountData();
-        if (data->type == AccountType::TheAltening && !data->theAlteningApiKey.isEmpty()) {
-            settings->set(TheAltening::ApiKeySettingName, data->theAlteningApiKey);
+        // Avoid naming this `data` — MSVC /WX treats shadowing QWidget::data as an error.
+        const auto* accountData = account->accountData();
+        if (accountData->type == AccountType::TheAltening && !accountData->theAlteningApiKey.isEmpty()) {
+            settings->set(TheAltening::ApiKeySettingName, accountData->theAlteningApiKey);
             return;
         }
     }

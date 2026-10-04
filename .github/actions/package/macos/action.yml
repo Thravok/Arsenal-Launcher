@@ -76,7 +76,16 @@ runs:
           ENTITLEMENTS_FILE='../program_info/AdhocSignedApp.entitlements'
         fi
 
-        sudo codesign --sign "$APPLE_CODESIGN_ID" --deep --force --entitlements "$ENTITLEMENTS_FILE" --options runtime "Arsenal.app/Contents/MacOS/arsenal"
+        # Avoid --deep: jars under Contents/MacOS/jars are not Mach-O, and codesign --deep
+        # fails with "code object is not signed at all" on NewLaunchLegacy.jar (and friends).
+        # Sign the executable, then the app bundle so jars are sealed as resources.
+        # Frameworks keep the signatures from macdeployqt / Sparkle; ad-hoc builds also use
+        # disable-library-validation in AdhocSignedApp.entitlements.
+        sudo codesign --sign "$APPLE_CODESIGN_ID" --force --entitlements "$ENTITLEMENTS_FILE" --options runtime \
+          "Arsenal.app/Contents/MacOS/arsenal"
+        sudo codesign --sign "$APPLE_CODESIGN_ID" --force --entitlements "$ENTITLEMENTS_FILE" --options runtime \
+          "Arsenal.app"
+        sudo codesign --verify --verbose=2 "Arsenal.app"
         mv "Arsenal.app" "Arsenal Launcher.app"
 
     - name: Notarize

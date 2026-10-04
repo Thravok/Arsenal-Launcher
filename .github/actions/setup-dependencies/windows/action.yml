@@ -19,12 +19,25 @@ runs:
 
   steps:
     # NOTE: Installed on MinGW as well for SignTool
+    # Do not pin vsversion — windows-11-arm images have moved between VS layouts;
+    # auto-detect matches Prism and finds whatever Enterprise install is present.
+    - name: Locate Visual Studio
+      if: ${{ runner.os == 'Windows' }}
+      shell: pwsh
+      run: |
+        $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+        if (Test-Path $vswhere) {
+          & $vswhere -latest -products * -format json
+        } else {
+          Write-Host 'vswhere not found; ilammy/msvc-dev-cmd will probe standard paths'
+        }
+        Get-ChildItem 'C:\Program Files\Microsoft Visual Studio' -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName }
+
     - name: Enter VS Developer shell
       if: ${{ runner.os == 'Windows' }}
       uses: ilammy/msvc-dev-cmd@v1
       with:
         arch: ${{ inputs.vcvars-arch }}
-        vsversion: 2022
 
     - name: Setup Java (MSVC)
       uses: actions/setup-java@v6

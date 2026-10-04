@@ -127,8 +127,8 @@ bool blocksLaunch(const MinecraftAccountPtr& account)
         // LaunchController re-authenticates Expired Altening accounts with the daily
         // alt token. Blocking here made that recovery path unreachable from the UI.
         if (account->accountType() == AccountType::TheAltening) {
-            const auto* data = account->accountData();
-            if (data && !data->yggdrasilToken.extra.value(QStringLiteral("userName")).toString().isEmpty()) {
+            const auto* accountData = account->accountData();
+            if (accountData && !accountData->yggdrasilToken.extra.value(QStringLiteral("userName")).toString().isEmpty()) {
                 return false;
             }
         }
