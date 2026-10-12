@@ -4,7 +4,7 @@ Impact Installer is **not** vendored in this repository.
 
 `ImpactInstallTask` downloads the official installer on first use:
 
-- Upstream: https://github.com/ImpactDevelopment/Installer/releases/download/0.9.5/installer-0.9.5.jar
+- Upstream: [Impact Installer 0.9.5](https://github.com/ImpactDevelopment/Installer/releases/download/0.9.5/installer-0.9.5.jar)
 - Cached under the launcher metacache base `hackclients/`
 
 LiquidBounce artifacts are fetched from liquidbounce.net / api.liquidbounce.net at install time.

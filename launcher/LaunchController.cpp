@@ -49,9 +49,11 @@
 #include "ui/dialogs/ProfileSetupDialog.h"
 #include "ui/dialogs/ProgressDialog.h"
 
+#include <QAbstractButton>
 #include <QCheckBox>
 #include <QInputDialog>
 #include <QList>
+#include <QMessageBox>
 #include <QPushButton>
 #include <utility>
 
@@ -221,7 +223,7 @@ bool LaunchController::askPlayDemo() const
     text += tr("\n\nDo you want to play the demo?");
     box.setText(text);
     box.setIcon(QMessageBox::Warning);
-    const auto* demoButton = box.addButton(tr("Play Demo"), QMessageBox::ButtonRole::YesRole);
+    QAbstractButton* demoButton = box.addButton(tr("Play Demo"), QMessageBox::ButtonRole::YesRole);
     auto* cancelButton = box.addButton(tr("Cancel"), QMessageBox::ButtonRole::NoRole);
     box.setDefaultButton(cancelButton);
 

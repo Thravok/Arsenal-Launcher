@@ -95,6 +95,7 @@
 #include <memory>
 #include <mutex>
 
+#include <QAbstractButton>
 #include <QAccessible>
 #include <QCommandLineParser>
 #include <QDebug>
@@ -104,6 +105,7 @@
 #include <QIcon>
 #include <QLibraryInfo>
 #include <QList>
+#include <QMessageBox>
 #include <QNetworkAccessManager>
 #include <QStringList>
 #include <QStringLiteral>
@@ -2130,7 +2132,7 @@ void Application::triggerUpdateCheck()
     msgBox.setInformativeText(tr("Version %1 (channel: %2) is not a public release, so automatic updates are not available.\n\n"
                                  "Download official builds from the releases page.")
                                   .arg(BuildConfig.printableVersionString(), BuildConfig.VERSION_CHANNEL));
-    auto* openReleases = msgBox.addButton(tr("Open Releases"), QMessageBox::AcceptRole);
+    QAbstractButton* openReleases = msgBox.addButton(tr("Open Releases"), QMessageBox::AcceptRole);
     msgBox.addButton(QMessageBox::Cancel);
     msgBox.exec();
     if (msgBox.clickedButton() == openReleases) {

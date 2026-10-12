@@ -16,7 +16,7 @@ Requires **Qt 6.8+** and a C++23-capable compiler (same as Prism Launcher). See 
 
 ```bash
 make submodules
-export CMAKE_PREFIX_PATH="$(brew --prefix qt@6)"   # adjust for your Qt install
+export CMAKE_PREFIX_PATH="$(brew --prefix qt)"   # or: brew --prefix qt@6
 make build
 ```
 
