@@ -132,7 +132,22 @@ runs:
             -ov -format ULMO \
             "../Arsenal.dmg"
 
+    # Upload zip/dmg before Sparkle so a feed failure cannot drop release artifacts.
+    - name: Upload binary tarball
+      uses: actions/upload-artifact@v7
+      with:
+        name: Arsenal-${{ inputs.artifact-name }}-${{ inputs.version }}-${{ inputs.build-type }}
+        path: Arsenal.zip
+
+    - name: Upload disk image
+      uses: actions/upload-artifact@v7
+      with:
+        name: Arsenal-${{ inputs.artifact-name }}-${{ inputs.version }}-${{ inputs.build-type }}.dmg
+        path: Arsenal.dmg
+
     - name: Make Sparkle signature and appcast
+      # Appcast is best-effort — zip/dmg must still publish if feed generation fails.
+      continue-on-error: true
       shell: bash
       env:
         RELEASE_TAG: ${{ inputs.release-tag }}
@@ -175,18 +190,6 @@ runs:
         fi
 
         rm -f ed25519-priv.pem
-
-    - name: Upload binary tarball
-      uses: actions/upload-artifact@v7
-      with:
-        name: Arsenal-${{ inputs.artifact-name }}-${{ inputs.version }}-${{ inputs.build-type }}
-        path: Arsenal.zip
-
-    - name: Upload disk image
-      uses: actions/upload-artifact@v7
-      with:
-        name: Arsenal-${{ inputs.artifact-name }}-${{ inputs.version }}-${{ inputs.build-type }}.dmg
-        path: Arsenal.dmg
 
     - name: Upload Sparkle appcast
       if: ${{ inputs.release-tag != '' }}

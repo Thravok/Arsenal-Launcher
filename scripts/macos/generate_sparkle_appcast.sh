@@ -70,18 +70,33 @@ trap cleanup EXIT
 
 cp "$dmg" "$work/$asset_name"
 
+generated="$work/$(basename "$out")"
+
 # Skip deltas — full DMG updates only (simpler CI / hosting on GitHub Releases).
+# Pass an absolute -o path; relative -o writes to CWD, not $work.
 "$sparkle_bin/generate_appcast" \
   --ed-key-file "$key" \
   --download-url-prefix "https://github.com/${repo}/releases/download/${tag}/" \
   --link "https://github.com/${repo}/releases/tag/${tag}" \
   --maximum-deltas 0 \
   --maximum-versions 5 \
-  -o "$(basename "$out")" \
+  -o "$generated" \
   "$work"
 
-generated="$work/$(basename "$out")"
-[[ -f "$generated" ]] || { echo "generate_appcast did not write $generated" >&2; exit 1; }
+# Older Sparkle builds may still drop appcast.xml in CWD — accept either.
+if [[ ! -f "$generated" ]]; then
+  for candidate in "$(pwd)/$(basename "$out")" "$(pwd)/appcast.xml" "$work/appcast.xml"; do
+    if [[ -f "$candidate" ]]; then
+      generated="$candidate"
+      break
+    fi
+  done
+fi
+[[ -f "$generated" ]] || {
+  echo "generate_appcast did not write $work/$(basename "$out") (also checked CWD)" >&2
+  ls -la "$work" "$(pwd)"/appcast.xml 2>/dev/null || true
+  exit 1
+}
 
 mkdir -p "$(dirname "$out")"
 cp "$generated" "$out"
