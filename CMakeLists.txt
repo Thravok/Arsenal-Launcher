@@ -426,7 +426,9 @@ if(UNIX AND APPLE)
     set(PLUGIN_DEST_DIR "${Launcher_Name}.app/Contents/MacOS")
     set(FRAMEWORK_DEST_DIR "${Launcher_Name}.app/Contents/Frameworks")
     set(RESOURCES_DEST_DIR "${Launcher_Name}.app/Contents/Resources")
-    set(JARS_DEST_DIR "${Launcher_Name}.app/Contents/MacOS/jars")
+    # Keep jars out of Contents/MacOS — codesign treats siblings of the Mach-O as
+    # nested code and fails on .jar files ("code object is not signed at all").
+    set(JARS_DEST_DIR "${Launcher_Name}.app/Contents/Resources/jars")
 
     # Mac bundle settings
     set(MACOSX_BUNDLE_BUNDLE_NAME "${Launcher_DisplayName}")

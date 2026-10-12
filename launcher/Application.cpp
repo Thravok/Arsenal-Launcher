@@ -1939,7 +1939,11 @@ QString Application::getJarPath(const QString& jarFile)
 #if defined(Q_OS_LINUX) || defined(Q_OS_FREEBSD) || defined(Q_OS_OPENBSD)
         FS::PathCombine(m_rootPath, "share", BuildConfig.LAUNCHER_NAME),
 #endif
-        FS::PathCombine(m_rootPath, "jars"), FS::PathCombine(applicationDirPath(), "jars"),
+        FS::PathCombine(m_rootPath, "jars"),
+        FS::PathCombine(applicationDirPath(), "jars"),
+        // macOS app bundle: jars live under Contents/Resources (not MacOS/) so codesign
+        // does not treat them as nested unsigned code next to the main executable.
+        FS::PathCombine(applicationDirPath(), "..", "Resources", "jars"),
         FS::PathCombine(applicationDirPath(), "..", "jars")  // from inside build dir, for debuging
     };
     for (const auto& p : potentialPaths) {

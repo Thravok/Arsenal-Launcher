@@ -76,26 +76,20 @@ runs:
           ENTITLEMENTS_FILE='../program_info/AdhocSignedApp.entitlements'
         fi
 
-        # jars under Contents/MacOS/ are treated as nested code next to the Mach-O.
-        # Move them aside while signing the binary and bundle, then restore so they
-        # are sealed as ordinary resources (not signed Mach-O). Avoid --deep.
-        JARS_TMP="$(mktemp -d)/jars"
+        # Migrate any legacy MacOS/jars into Resources before signing — codesign
+        # treats siblings of the Mach-O as nested code and rejects unsigned .jars.
         if [ -d "Arsenal.app/Contents/MacOS/jars" ]; then
-          mv "Arsenal.app/Contents/MacOS/jars" "$JARS_TMP"
+          mkdir -p "Arsenal.app/Contents/Resources"
+          rm -rf "Arsenal.app/Contents/Resources/jars"
+          mv "Arsenal.app/Contents/MacOS/jars" "Arsenal.app/Contents/Resources/jars"
         fi
 
+        # Sign the executable, then the app bundle (jars sealed as Resources).
+        # Avoid --deep. Frameworks keep signatures from macdeployqt / Sparkle.
         sudo codesign --sign "$APPLE_CODESIGN_ID" --force --entitlements "$ENTITLEMENTS_FILE" --options runtime \
           "Arsenal.app/Contents/MacOS/arsenal"
         sudo codesign --sign "$APPLE_CODESIGN_ID" --force --entitlements "$ENTITLEMENTS_FILE" --options runtime \
           "Arsenal.app"
-
-        if [ -d "$JARS_TMP" ]; then
-          mv "$JARS_TMP" "Arsenal.app/Contents/MacOS/jars"
-          # Re-seal the bundle so restored jars are included as resources.
-          sudo codesign --sign "$APPLE_CODESIGN_ID" --force --entitlements "$ENTITLEMENTS_FILE" --options runtime \
-            "Arsenal.app"
-        fi
-
         sudo codesign --verify --verbose=2 "Arsenal.app"
         mv "Arsenal.app" "Arsenal Launcher.app"
 
