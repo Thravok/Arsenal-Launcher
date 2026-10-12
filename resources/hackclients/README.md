@@ -29,10 +29,13 @@ Wurst Client v7 JARs are listed from GitHub (`Wurst-Imperium/Wurst-MCX2` release
 
 - **Litematica** + **Litematica Printer** (Modrinth; MaLiLib via required deps)
 - **Arsenal NameProtect** ([Thravok/Arsenal-Name-Protect](https://github.com/Thravok/Arsenal-Name-Protect) GitHub Releases) — client-side name aliases synced from Settings → Name Protect; does not change online Mojang identity (Fabric 1.21.x JARs named `arsenal-nameprotect-mc{version}-*.jar`)
+- **ViaFabricPlus** (Modrinth) — join other Minecraft protocol versions from a modern Fabric client
+- **Bobby** (Modrinth) — client-side chunk cache for render distance beyond the server view-distance
+- **SeedcrackerX** ([19MisterX98/SeedcrackerX](https://github.com/19MisterX98/SeedcrackerX) GitHub Releases) — client-side world-seed / structure finder
 
 **New Instance** includes **Install Arsenal NameProtect** (on by default). After a Fabric instance is created successfully, Arsenal NameProtect is downloaded automatically. Non-Fabric loaders skip the install silently.
 
-Before download, Arsenal walks Modrinth `required` dependencies and shows a review dialog. Downloads go to a temp file first, then replace older jars; Modrinth-backed installs also write `.index` metadata so Check for Updates can see them. More curated utilities (ViaFabricPlus, SeedcrackerX, Bobby) can be added to the same catalog later.
+Before download, Arsenal walks Modrinth `required` dependencies and shows a review dialog. Downloads go to a temp file first, then replace older jars; Modrinth-backed installs also write `.index` metadata so Check for Updates can see them.
 
 **Meteor addons** — on a Fabric instance that already has a Meteor Client JAR in `mods/`, the Mods tab shows **Meteor Addons**. The catalog is fetched from the community list maintained by [meteor-addon-scanner](https://github.com/cqb13/meteor-addon-scanner) (`addons/addons.json`). Direct release JAR URLs are downloaded into `mods/`. Skip `-dev.jar` and `-sources.jar` assets when picking downloads.
 

@@ -20,7 +20,7 @@
  *
  */
 
-#include "PrismUpdater.h"
+#include "ArsenalUpdater.h"
 #include "BuildConfig.h"
 #include "ui/dialogs/ProgressDialog.h"
 
@@ -45,7 +45,7 @@ namespace fs = std::filesystem;
 
 #include "DesktopServices.h"
 
-#include "updater/prismupdater/UpdaterDialogs.h"
+#include "updater/arsenalupdater/UpdaterDialogs.h"
 
 #include "FileSystem.h"
 #include "Json.h"
@@ -65,7 +65,7 @@ void appDebugOutput(QtMsgType type, const QMessageLogContext& context, const QSt
     QString out = qFormatLogMessage(type, context, msg);
     out += QChar::LineFeed;
 
-    PrismUpdaterApp* app = static_cast<PrismUpdaterApp*>(QCoreApplication::instance());
+    ArsenalUpdaterApp* app = static_cast<ArsenalUpdaterApp*>(QCoreApplication::instance());
     app->logFile->write(out.toUtf8());
     app->logFile->flush();
     if (app->logToConsole) {
@@ -74,7 +74,7 @@ void appDebugOutput(QtMsgType type, const QMessageLogContext& context, const QSt
     }
 }
 
-PrismUpdaterApp::PrismUpdaterApp(int& argc, char** argv) : QApplication(argc, argv)
+ArsenalUpdaterApp::ArsenalUpdaterApp(int& argc, char** argv) : QApplication(argc, argv)
 {
     setOrganizationName(BuildConfig.LAUNCHER_NAME);
     setOrganizationDomain(BuildConfig.LAUNCHER_DOMAIN);
@@ -83,7 +83,7 @@ PrismUpdaterApp::PrismUpdaterApp(int& argc, char** argv) : QApplication(argc, ar
 
     // Command line parsing
     QCommandLineParser parser;
-    parser.setApplicationDescription(QObject::tr("An auto-updater for Prism Launcher"));
+    parser.setApplicationDescription(QObject::tr("An auto-updater for %1").arg(BuildConfig.LAUNCHER_DISPLAYNAME));
 
     parser.addOptions(
         { { { "d", "dir" }, tr("Use a custom path as application root (use '.' for current directory)."), tr("directory") },
@@ -169,7 +169,7 @@ PrismUpdaterApp::PrismUpdaterApp(int& argc, char** argv) : QApplication(argc, ar
 #endif
     }
 
-    m_updateLogPath = FS::PathCombine(m_dataPath, "logs", "prism_launcher_update.log");
+    m_updateLogPath = FS::PathCombine(m_dataPath, "logs", "arsenal_launcher_update.log");
 
     {  // setup logging
         FS::ensureFolderPathExists(FS::PathCombine(m_dataPath, "logs"));
@@ -346,8 +346,13 @@ PrismUpdaterApp::PrismUpdaterApp(int& argc, char** argv) : QApplication(argc, ar
 
     m_allowPreRelease = parser.isSet("pre-release");
 
-    auto marker_file_path = QDir(m_rootPath).absoluteFilePath(".prism_launcher_updater_unpack.marker");
+    // Prefer Arsenal unpack marker; still honor legacy Prism marker from older builds.
+    auto marker_file_path = QDir(m_rootPath).absoluteFilePath(".arsenal_launcher_updater_unpack.marker");
     auto marker_file = QFileInfo(marker_file_path);
+    if (!marker_file.exists()) {
+        marker_file_path = QDir(m_rootPath).absoluteFilePath(".prism_launcher_updater_unpack.marker");
+        marker_file = QFileInfo(marker_file_path);
+    }
     if (marker_file.exists()) {
         auto target_dir = QString(FS::read(marker_file_path)).trimmed();
         if (target_dir.isEmpty()) {
@@ -358,32 +363,32 @@ PrismUpdaterApp::PrismUpdaterApp(int& argc, char** argv) : QApplication(argc, ar
         QMetaObject::invokeMethod(this, [this, target_dir]() { moveAndFinishUpdate(target_dir); }, Qt::QueuedConnection);
 
     } else {
-        QMetaObject::invokeMethod(this, &PrismUpdaterApp::loadReleaseList, Qt::QueuedConnection);
+        QMetaObject::invokeMethod(this, &ArsenalUpdaterApp::loadReleaseList, Qt::QueuedConnection);
     }
 }
 
-PrismUpdaterApp::~PrismUpdaterApp()
+ArsenalUpdaterApp::~ArsenalUpdaterApp()
 {
     qDebug() << "updater shutting down";
     // Shut down logger by setting the logger function to nothing
     qInstallMessageHandler(nullptr);
 }
 
-void PrismUpdaterApp::fail(const QString& reason)
+void ArsenalUpdaterApp::fail(const QString& reason)
 {
     qCritical() << qPrintable(reason);
     m_status = Failed;
     exit(1);
 }
 
-void PrismUpdaterApp::abort(const QString& reason)
+void ArsenalUpdaterApp::abort(const QString& reason)
 {
     qCritical() << qPrintable(reason);
     m_status = Aborted;
     exit(2);
 }
 
-void PrismUpdaterApp::showFatalErrorMessage(const QString& title, const QString& content)
+void ArsenalUpdaterApp::showFatalErrorMessage(const QString& title, const QString& content)
 {
     m_status = Failed;
     auto msgBox = new QMessageBox();
@@ -399,7 +404,7 @@ void PrismUpdaterApp::showFatalErrorMessage(const QString& title, const QString&
     exit(1);
 }
 
-void PrismUpdaterApp::run()
+void ArsenalUpdaterApp::run()
 {
     qDebug() << "found" << m_releases.length() << "releases on github";
     qDebug() << "loading exe at" << m_prismExecutable;
@@ -410,7 +415,7 @@ void PrismUpdaterApp::run()
         return exit(0);
     }
 
-    if (!loadPrismVersionFromExe(m_prismExecutable)) {
+    if (!loadLauncherVersionFromExe(m_prismExecutable)) {
         m_prismVersion = BuildConfig.printableVersionString();
         m_prismVersionMajor = BuildConfig.VERSION_MAJOR;
         m_prismVersionMinor = BuildConfig.VERSION_MINOR;
@@ -447,8 +452,10 @@ void PrismUpdaterApp::run()
     }
 
     if (m_isFlatpak) {
-        showFatalErrorMessage(tr("Updating flatpack not supported"), tr("Actions outside of checking if an update is available are not "
-                                                                        "supported when running the flatpak version of Prism Launcher."));
+        showFatalErrorMessage(tr("Updating flatpack not supported"),
+                              tr("Actions outside of checking if an update is available are not "
+                                 "supported when running the flatpak version of %1.")
+                                  .arg(BuildConfig.LAUNCHER_DISPLAYNAME));
         return;
     }
     if (m_isAppimage) {
@@ -489,7 +496,7 @@ void PrismUpdaterApp::run()
     exit(0);
 }
 
-void PrismUpdaterApp::moveAndFinishUpdate(QDir target)
+void ArsenalUpdaterApp::moveAndFinishUpdate(QDir target)
 {
     logUpdate("Finishing update process");
 
@@ -571,15 +578,16 @@ void PrismUpdaterApp::moveAndFinishUpdate(QDir target)
 
     if (error) {
         logUpdate(tr("There were errors installing the update."));
-        auto fail_marker = FS::PathCombine(m_dataPath, ".prism_launcher_update.fail");
+        auto fail_marker = FS::PathCombine(m_dataPath, ".arsenal_launcher_update.fail");
         FS::copy(m_updateLogPath, fail_marker).overwrite(true)();
     } else {
         logUpdate(tr("Update succeed."));
-        auto success_marker = FS::PathCombine(m_dataPath, ".prism_launcher_update.success");
+        auto success_marker = FS::PathCombine(m_dataPath, ".arsenal_launcher_update.success");
         FS::copy(m_updateLogPath, success_marker).overwrite(true)();
     }
-    auto update_lock_path = FS::PathCombine(m_dataPath, ".prism_launcher_update.lock");
+    auto update_lock_path = FS::PathCombine(m_dataPath, ".arsenal_launcher_update.lock");
     FS::deletePath(update_lock_path);
+    FS::deletePath(FS::PathCombine(m_dataPath, ".prism_launcher_update.lock"));
 
     QProcess proc;
     auto app_exe_name = BuildConfig.LAUNCHER_APP_BINARY_NAME;
@@ -599,14 +607,14 @@ void PrismUpdaterApp::moveAndFinishUpdate(QDir target)
     exit(error ? 1 : 0);
 }
 
-void PrismUpdaterApp::printReleases()
+void ArsenalUpdaterApp::printReleases()
 {
     for (auto release : m_releases) {
         std::cout << release.name.toStdString() << " Version: " << release.tag_name.toStdString() << std::endl;
     }
 }
 
-QList<GitHubRelease> PrismUpdaterApp::nonDraftReleases()
+QList<GitHubRelease> ArsenalUpdaterApp::nonDraftReleases()
 {
     QList<GitHubRelease> nonDraft;
     for (auto rls : m_releases) {
@@ -616,7 +624,7 @@ QList<GitHubRelease> PrismUpdaterApp::nonDraftReleases()
     return nonDraft;
 }
 
-QList<GitHubRelease> PrismUpdaterApp::newerReleases()
+QList<GitHubRelease> ArsenalUpdaterApp::newerReleases()
 {
     QList<GitHubRelease> newer;
     for (auto rls : nonDraftReleases()) {
@@ -626,7 +634,7 @@ QList<GitHubRelease> PrismUpdaterApp::newerReleases()
     return newer;
 }
 
-GitHubRelease PrismUpdaterApp::selectRelease()
+GitHubRelease ArsenalUpdaterApp::selectRelease()
 {
     QList<GitHubRelease> releases;
 
@@ -650,7 +658,7 @@ GitHubRelease PrismUpdaterApp::selectRelease()
     return release;
 }
 
-QList<GitHubReleaseAsset> PrismUpdaterApp::validReleaseArtifacts(const GitHubRelease& release)
+QList<GitHubReleaseAsset> ArsenalUpdaterApp::validReleaseArtifacts(const GitHubRelease& release)
 {
     QList<GitHubReleaseAsset> valid;
 
@@ -712,7 +720,7 @@ QList<GitHubReleaseAsset> PrismUpdaterApp::validReleaseArtifacts(const GitHubRel
     return valid;
 }
 
-GitHubReleaseAsset PrismUpdaterApp::selectAsset(const QList<GitHubReleaseAsset>& assets)
+GitHubReleaseAsset ArsenalUpdaterApp::selectAsset(const QList<GitHubReleaseAsset>& assets)
 {
     SelectReleaseAssetDialog dlg(assets);
     auto result = dlg.exec();
@@ -725,7 +733,7 @@ GitHubReleaseAsset PrismUpdaterApp::selectAsset(const QList<GitHubReleaseAsset>&
     return asset;
 }
 
-void PrismUpdaterApp::performUpdate(const GitHubRelease& release)
+void ArsenalUpdaterApp::performUpdate(const GitHubRelease& release)
 {
     m_install_release = release;
     qDebug() << "Updating to" << release.tag_name;
@@ -759,7 +767,7 @@ void PrismUpdaterApp::performUpdate(const GitHubRelease& release)
     performInstall(file);
 }
 
-QFileInfo PrismUpdaterApp::downloadAsset(const GitHubReleaseAsset& asset)
+QFileInfo ArsenalUpdaterApp::downloadAsset(const GitHubReleaseAsset& asset)
 {
     auto temp_dir = QDir::tempPath();
     auto file_url = QUrl(asset.browser_download_url);
@@ -779,7 +787,7 @@ QFileInfo PrismUpdaterApp::downloadAsset(const GitHubReleaseAsset& asset)
     return out_file;
 }
 
-bool PrismUpdaterApp::callAppImageUpdate()
+bool ArsenalUpdaterApp::callAppImageUpdate()
 {
     auto appimage_path = QProcessEnvironment::systemEnvironment().value(QStringLiteral("APPIMAGE"));
     QProcess proc = QProcess();
@@ -792,12 +800,12 @@ bool PrismUpdaterApp::callAppImageUpdate()
     return result;
 }
 
-void PrismUpdaterApp::clearUpdateLog()
+void ArsenalUpdaterApp::clearUpdateLog()
 {
     FS::deletePath(m_updateLogPath);
 }
 
-void PrismUpdaterApp::logUpdate(const QString& msg)
+void ArsenalUpdaterApp::logUpdate(const QString& msg)
 {
     qDebug() << qUtf8Printable(msg);
     FS::append(m_updateLogPath, QStringLiteral("%1\n").arg(msg).toUtf8());
@@ -848,13 +856,21 @@ bool write_lock_file(const QString& path, QDateTime timestamp, QString from, QSt
     return true;
 }
 
-void PrismUpdaterApp::performInstall(QFileInfo file)
+void ArsenalUpdaterApp::performInstall(QFileInfo file)
 {
     qDebug() << "starting install";
-    auto update_lock_path = FS::PathCombine(m_dataPath, ".prism_launcher_update.lock");
+    auto update_lock_path = FS::PathCombine(m_dataPath, ".arsenal_launcher_update.lock");
     QFileInfo update_lock(update_lock_path);
+    auto legacy_lock_path = FS::PathCombine(m_dataPath, ".prism_launcher_update.lock");
+    if (!update_lock.exists()) {
+        update_lock = QFileInfo(legacy_lock_path);
+        if (update_lock.exists())
+            update_lock_path = legacy_lock_path;
+        else
+            update_lock_path = FS::PathCombine(m_dataPath, ".arsenal_launcher_update.lock");
+    }
     if (update_lock.exists()) {
-        auto [timestamp, from, to, target, data_path] = read_lock_File(update_lock_path);
+        auto [timestamp, from, to, target, data_path] = read_lock_File(update_lock.absoluteFilePath());
         auto msg = tr("Update already in progress\n");
         auto infoMsg =
             tr("This installation has a update lock file present at: %1\n"
@@ -866,14 +882,14 @@ void PrismUpdaterApp::performInstall(QFileInfo file)
                "\n"
                "This likely means that a previous update attempt failed. Please ensure your installation is in working order before "
                "proceeding.\n"
-               "Check the Prism Launcher updater log at: \n"
-               "%7\n"
+               "Check the %7 updater log at: \n"
+               "%8\n"
                "for details on the last update attempt.\n"
                "\n"
                "To overwrite this lock and proceed with this update anyway, select \"Ignore\" below.")
-                .arg(update_lock_path)
+                .arg(update_lock.absoluteFilePath())
                 .arg(timestamp.toString(Qt::ISODate), from, to, target, data_path)
-                .arg(m_updateLogPath);
+                .arg(BuildConfig.LAUNCHER_DISPLAYNAME, m_updateLogPath);
         QMessageBox msgBox;
         msgBox.setText(msg);
         msgBox.setInformativeText(infoMsg);
@@ -892,11 +908,13 @@ void PrismUpdaterApp::performInstall(QFileInfo file)
     }
     clearUpdateLog();
 
-    auto changelog_path = FS::PathCombine(m_dataPath, ".prism_launcher_update.changelog");
+    auto changelog_path = FS::PathCombine(m_dataPath, ".arsenal_launcher_update.changelog");
     FS::write(changelog_path, m_install_release.body.toUtf8());
 
     logUpdate(tr("Updating from %1 to %2").arg(m_prismVersion).arg(m_install_release.tag_name));
     if (m_isPortable || file.fileName().endsWith(".zip") || file.fileName().endsWith(".tar.gz")) {
+        update_lock_path = FS::PathCombine(m_dataPath, ".arsenal_launcher_update.lock");
+        FS::deletePath(legacy_lock_path);
         write_lock_file(update_lock_path, QDateTime::currentDateTime(), m_prismVersion, m_install_release.tag_name, m_rootPath, m_dataPath);
         logUpdate(tr("Updating portable install at %1").arg(m_rootPath));
         unpackAndInstall(file);
@@ -915,13 +933,13 @@ void PrismUpdaterApp::performInstall(QFileInfo file)
     }
 }
 
-void PrismUpdaterApp::unpackAndInstall(QFileInfo archive)
+void ArsenalUpdaterApp::unpackAndInstall(QFileInfo archive)
 {
     logUpdate(tr("Backing up install"));
     backupAppDir();
 
     if (auto loc = unpackArchive(archive)) {
-        auto marker_file_path = loc.value().absoluteFilePath(".prism_launcher_updater_unpack.marker");
+        auto marker_file_path = loc.value().absoluteFilePath(".arsenal_launcher_updater_unpack.marker");
         FS::write(marker_file_path, m_rootPath.toUtf8());
 
         QProcess proc = QProcess();
@@ -948,7 +966,7 @@ void PrismUpdaterApp::unpackAndInstall(QFileInfo archive)
     return exit(1);  // unpack failure
 }
 
-void PrismUpdaterApp::backupAppDir()
+void ArsenalUpdaterApp::backupAppDir()
 {
     auto manifest_path = FS::PathCombine(m_rootPath, "manifest.txt");
     QFileInfo manifest(manifest_path);
@@ -969,12 +987,16 @@ void PrismUpdaterApp::backupAppDir()
     }
 
     if (file_list.isEmpty()) {
-        // best guess
+        // best guess — Arsenal binary names plus legacy Prism names for upgrades
+        const auto bin = BuildConfig.LAUNCHER_APP_BINARY_NAME;
         if (BuildConfig.BUILD_ARTIFACT.toLower().contains("linux")) {
-            file_list.append({ "PrismLauncher", "bin", "share", "lib" });
+            file_list.append({ bin, "PrismLauncher", "bin", "share", "lib" });
         } else {  // windows by process of elimination
             file_list.append({
                 "jars",
+                QStringLiteral("%1.exe").arg(bin),
+                QStringLiteral("%1_filelink.exe").arg(bin),
+                QStringLiteral("%1_updater.exe").arg(bin),
                 "prismlauncher.exe",
                 "prismlauncher_filelink.exe",
                 "prismlauncher_updater.exe",
@@ -997,7 +1019,7 @@ void PrismUpdaterApp::backupAppDir()
         FS::PathCombine(app_dir.absolutePath(),
                         QStringLiteral("backup_") + QString(m_prismVersion).replace(s_replaceRegex, QString("_")) + "-" + m_prismGitCommit);
     FS::ensureFolderPathExists(backup_dir);
-    auto backup_marker_path = FS::PathCombine(m_dataPath, ".prism_launcher_update_backup_path.txt");
+    auto backup_marker_path = FS::PathCombine(m_dataPath, ".arsenal_launcher_update_backup_path.txt");
     FS::write(backup_marker_path, backup_dir.toUtf8());
 
     QProgressDialog progress(tr("Backing up install at %1").arg(m_rootPath), "", 0, file_list.length());
@@ -1045,9 +1067,9 @@ void PrismUpdaterApp::backupAppDir()
     QCoreApplication::processEvents();
 }
 
-std::optional<QDir> PrismUpdaterApp::unpackArchive(QFileInfo archive)
+std::optional<QDir> ArsenalUpdaterApp::unpackArchive(QFileInfo archive)
 {
-    auto temp_extract_path = FS::PathCombine(m_dataPath, "prism_launcher_update_release");
+    auto temp_extract_path = FS::PathCombine(m_dataPath, "arsenal_launcher_update_release");
     FS::ensureFolderPathExists(temp_extract_path);
     auto tmp_extract_dir = QDir(temp_extract_path);
 
@@ -1064,7 +1086,7 @@ std::optional<QDir> PrismUpdaterApp::unpackArchive(QFileInfo archive)
     return tmp_extract_dir;
 }
 
-bool PrismUpdaterApp::loadPrismVersionFromExe(const QString& exe_path)
+bool ArsenalUpdaterApp::loadLauncherVersionFromExe(const QString& exe_path)
 {
     QProcess proc = QProcess();
     proc.setProcessChannelMode(QProcess::MergedChannels);
@@ -1115,7 +1137,7 @@ bool PrismUpdaterApp::loadPrismVersionFromExe(const QString& exe_path)
     return true;
 }
 
-void PrismUpdaterApp::loadReleaseList()
+void ArsenalUpdaterApp::loadReleaseList()
 {
     auto github_repo = m_prismRepoUrl;
     if (github_repo.host() != "github.com")
@@ -1132,7 +1154,7 @@ void PrismUpdaterApp::loadReleaseList()
     downloadReleasePage(api_url, 1);
 }
 
-void PrismUpdaterApp::downloadReleasePage(const QString& api_url, int page)
+void ArsenalUpdaterApp::downloadReleasePage(const QString& api_url, int page)
 {
     int per_page = 30;
     auto page_url = QString("%1?per_page=%2&page=%3").arg(api_url).arg(QString::number(per_page)).arg(QString::number(page));
@@ -1155,7 +1177,7 @@ void PrismUpdaterApp::downloadReleasePage(const QString& api_url, int page)
             run();
         }
     });
-    connect(download.get(), &Net::Request::failed, this, &PrismUpdaterApp::downloadError);
+    connect(download.get(), &Net::Request::failed, this, &ArsenalUpdaterApp::downloadError);
 
     m_current_task.reset(download);
     connect(download.get(), &Net::Request::finished, this, [this]() {
@@ -1167,7 +1189,7 @@ void PrismUpdaterApp::downloadReleasePage(const QString& api_url, int page)
     QMetaObject::invokeMethod(download.get(), &Task::start, Qt::QueuedConnection);
 }
 
-int PrismUpdaterApp::parseReleasePage(const QByteArray* response)
+int ArsenalUpdaterApp::parseReleasePage(const QByteArray* response)
 {
     if (response->isEmpty())  // empty page
         return 0;
@@ -1214,7 +1236,7 @@ int PrismUpdaterApp::parseReleasePage(const QByteArray* response)
     return num_releases;
 }
 
-GitHubRelease PrismUpdaterApp::getLatestRelease()
+GitHubRelease ArsenalUpdaterApp::getLatestRelease()
 {
     GitHubRelease latest;
     for (auto release : m_releases) {
@@ -1229,13 +1251,13 @@ GitHubRelease PrismUpdaterApp::getLatestRelease()
     return latest;
 }
 
-bool PrismUpdaterApp::needUpdate(const GitHubRelease& release)
+bool ArsenalUpdaterApp::needUpdate(const GitHubRelease& release)
 {
     auto current_ver = Version(QString("%1.%2.%3").arg(m_prismVersionMajor).arg(m_prismVersionMinor).arg(m_prismVersionPatch));
     return current_ver < release.version;
 }
 
-void PrismUpdaterApp::downloadError(QString reason)
+void ArsenalUpdaterApp::downloadError(QString reason)
 {
     fail(QString("Network request Failed: %1 with reason %2").arg(m_current_url).arg(reason));
 }

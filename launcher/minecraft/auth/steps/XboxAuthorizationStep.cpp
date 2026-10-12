@@ -75,9 +75,12 @@ void XboxAuthorizationStep::onRequestDone(QByteArray* response)
     }
 
     Token temp;
-    if (!Parsers::parseXTokenResponse(*response, temp, m_authorizationKind)) {
+    QString parseError;
+    if (!Parsers::parseXTokenResponse(*response, temp, m_authorizationKind, &parseError)) {
         emit finished(AccountTaskState::STATE_FAILED_SOFT,
-                      tr("Could not parse authorization response for access to %1 services.").arg(m_authorizationKind));
+                      parseError.isEmpty()
+                          ? tr("Could not parse authorization response for access to %1 services.").arg(m_authorizationKind)
+                          : parseError);
         return;
     }
 
@@ -111,36 +114,12 @@ bool XboxAuthorizationStep::processSTSError(const QByteArray& response)
                           tr("XErr element is missing from %1 authorization error response.").arg(m_authorizationKind));
             return true;
         }
+        if (const QString mapped = Parsers::xboxXErrMessage(errorCode); !mapped.isEmpty()) {
+            emit finished(AccountTaskState::STATE_FAILED_SOFT, mapped);
+            return true;
+        }
+        // Additional codes from https://github.com/PrismarineJS/prismarine-auth/pull/44
         switch (errorCode) {
-            case 2148916233: {
-                emit finished(AccountTaskState::STATE_FAILED_SOFT,
-                              tr("This Microsoft account does not have an Xbox Live profile. Buy the game on %1 first.")
-                                  .arg("<a href=\"https://www.minecraft.net/en-us/store/minecraft-java-edition\">minecraft.net</a>"));
-                return true;
-            }
-            case 2148916235: {
-                // NOTE: this is the Grulovia error
-                emit finished(AccountTaskState::STATE_FAILED_SOFT, tr("Xbox Live is not available in your country. You've been blocked."));
-                return true;
-            }
-            case 2148916238: {
-                emit finished(
-                    AccountTaskState::STATE_FAILED_SOFT,
-                    tr("This Microsoft account is underaged and is not linked to a family.\n\nPlease set up your account according to %1.")
-                        .arg("<a href=\"https://help.minecraft.net/hc/en-us/articles/4408968616077\">help.minecraft.net</a>"));
-                return true;
-            }
-            // the following codes where copied from: https://github.com/PrismarineJS/prismarine-auth/pull/44
-            case 2148916236: {
-                emit finished(AccountTaskState::STATE_FAILED_SOFT,
-                              tr("This Microsoft account requires proof of age to play. Please login to %1 to provide proof of age.")
-                                  .arg("<a href=\"https://login.live.com/login.srf\">login.live.com</a>"));
-                return true;
-            }
-            case 2148916237:
-                emit finished(AccountTaskState::STATE_FAILED_SOFT, tr("This Microsoft account has reached its limit for playtime. This "
-                                                                      "Microsoft account has been blocked from logging in."));
-                return true;
             case 2148916227: {
                 emit finished(AccountTaskState::STATE_FAILED_SOFT, tr("This Microsoft account was banned by Xbox for violating one or more "
                                                                       "Community Standards for Xbox and is unable to be used."));

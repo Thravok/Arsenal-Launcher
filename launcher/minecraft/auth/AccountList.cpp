@@ -37,6 +37,7 @@
 #include "AccountData.h"
 #include "tasks/Task.h"
 
+#include <QApplication>
 #include <QDir>
 #include <QFile>
 #include <QIcon>
@@ -47,6 +48,8 @@
 #include <QJsonParseError>
 #include <QTextStream>
 #include <QTimer>
+
+#include "ui/dialogs/CustomMessageBox.h"
 
 #include <QDebug>
 
@@ -262,8 +265,7 @@ void AccountList::accountActivityChanged(bool active)
 void AccountList::onListChanged()
 {
     if (m_autosave)
-        // TODO: Alert the user if this fails.
-        saveList();
+        saveList();  // saveList alerts the user on failure
 
     emit listChanged();
 }
@@ -278,7 +280,7 @@ void AccountList::refreshDisplayNames()
 void AccountList::onDefaultAccountChanged()
 {
     if (m_autosave)
-        saveList();
+        saveList();  // saveList alerts the user on failure
 
     emit defaultAccountChanged();
 }
@@ -458,9 +460,12 @@ bool AccountList::loadList()
     QFile file(m_listFilePath);
 
     // Try to open the file and fail if we can't.
-    // TODO: We should probably report this error to the user.
     if (!file.open(QIODevice::ReadOnly)) {
         qCritical() << QString("Failed to read the account list file %1 (%2).").arg(m_listFilePath).arg(file.errorString()).toUtf8();
+        CustomMessageBox::selectable(QApplication::activeWindow(), tr("Account list"),
+                                     tr("Failed to read the account list file:\n%1\n\n%2").arg(m_listFilePath, file.errorString()),
+                                     QMessageBox::Warning)
+            ->show();
         return false;
     }
 
@@ -575,9 +580,12 @@ bool AccountList::saveList()
     QSaveFile file(m_listFilePath);
 
     // Try to open the file and fail if we can't.
-    // TODO: We should probably report this error to the user.
     if (!file.open(QIODevice::WriteOnly)) {
         qCritical() << QString("Failed to save the account list file %1 (%2).").arg(m_listFilePath).arg(file.errorString()).toUtf8();
+        CustomMessageBox::selectable(QApplication::activeWindow(), tr("Account list"),
+                                     tr("Failed to save the account list file:\n%1\n\n%2").arg(m_listFilePath, file.errorString()),
+                                     QMessageBox::Warning)
+            ->show();
         return false;
     }
 
@@ -587,10 +595,14 @@ bool AccountList::saveList()
     if (file.commit()) {
         qDebug() << "Saved account list to" << m_listFilePath;
         return true;
-    } else {
-        qDebug() << "Failed to save accounts to" << m_listFilePath << "error:" << file.errorString();
-        return false;
     }
+
+    qDebug() << "Failed to save accounts to" << m_listFilePath << "error:" << file.errorString();
+    CustomMessageBox::selectable(QApplication::activeWindow(), tr("Account list"),
+                                 tr("Failed to save the account list file:\n%1\n\n%2").arg(m_listFilePath, file.errorString()),
+                                 QMessageBox::Warning)
+        ->show();
+    return false;
 }
 
 void AccountList::setListFilePath(QString path, bool autosave)

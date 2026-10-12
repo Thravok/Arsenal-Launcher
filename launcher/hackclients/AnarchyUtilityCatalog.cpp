@@ -36,6 +36,33 @@ QList<AnarchyUtilitySpec> AnarchyUtilityCatalog::all()
             { QStringLiteral("arsenal-nameprotect") },
             QStringLiteral("Thravok/Arsenal-Name-Protect"),
         },
+        AnarchyUtilitySpec{
+            QStringLiteral("viafabricplus"),
+            QStringLiteral("ViaFabricPlus"),
+            QStringLiteral("Join older and newer Minecraft server versions from a modern Fabric client "
+                           "(Classic through current releases, including Bedrock via ViaBedrock)."),
+            QStringLiteral("viafabricplus"),
+            { QStringLiteral("viafabricplus") },
+            {},
+        },
+        AnarchyUtilitySpec{
+            QStringLiteral("bobby"),
+            QStringLiteral("Bobby"),
+            QStringLiteral("Client-side chunk cache so you can set render distance higher than the "
+                           "server view-distance. No server-side install required."),
+            QStringLiteral("bobby"),
+            { QStringLiteral("bobby") },
+            {},
+        },
+        AnarchyUtilitySpec{
+            QStringLiteral("seedcrackerx"),
+            QStringLiteral("SeedcrackerX"),
+            QStringLiteral("Client-side structure finder that helps recover the world seed from "
+                           "observed terrain. Fabric builds from GitHub Releases."),
+            {},  // Modrinth unused
+            { QStringLiteral("seedcrackerx"), QStringLiteral("seedcrackerX") },
+            QStringLiteral("19MisterX98/SeedcrackerX"),
+        },
     };
 }
 

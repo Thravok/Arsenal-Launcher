@@ -5,8 +5,52 @@
 #include <QDebug>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QObject>
 
 namespace Parsers {
+
+QString xboxXErrMessage(int64_t errorCode)
+{
+    switch (errorCode) {
+        case 2148916233:
+            return QObject::tr("This Microsoft account does not have an Xbox Live profile. Buy the game on %1 first.")
+                .arg("<a href=\"https://www.minecraft.net/en-us/store/minecraft-java-edition\">minecraft.net</a>");
+        case 2148916235:
+            return QObject::tr("Xbox Live is not available in your country. You've been blocked.");
+        case 2148916238:
+            return QObject::tr(
+                       "This Microsoft account is underaged and is not linked to a family.\n\nPlease set up your account according to %1.")
+                .arg("<a href=\"https://help.minecraft.net/hc/en-us/articles/4408968616077\">help.minecraft.net</a>");
+        case 2148916236:
+            return QObject::tr("This Microsoft account requires proof of age to play. Please login to %1 to provide proof of age.")
+                .arg("<a href=\"https://login.live.com/login.srf\">login.live.com</a>");
+        case 2148916237:
+            return QObject::tr(
+                "This Microsoft account has reached its limit for playtime. This Microsoft account has been blocked from logging in.");
+        default:
+            return {};
+    }
+}
+
+bool isStructurallyValidJwt(const QString& token)
+{
+    const auto parts = token.split(QLatin1Char('.'));
+    if (parts.size() != 3)
+        return false;
+    for (const auto& part : parts) {
+        if (part.isEmpty())
+            return false;
+        QByteArray b64 = part.toUtf8();
+        b64.replace('-', '+');
+        b64.replace('_', '/');
+        while (b64.size() % 4)
+            b64.append('=');
+        const QByteArray decoded = QByteArray::fromBase64(b64, QByteArray::AbortOnBase64DecodingErrors);
+        if (decoded.isEmpty())
+            return false;
+    }
+    return true;
+}
 
 bool getDateTime(QJsonValue value, QDateTime& out)
 {
@@ -67,19 +111,7 @@ bool getBool(QJsonValue value, bool& out)
    }
  }
 */
-// TODO: handle error responses ...
-/*
-{
-    "Identity":"0",
-    "XErr":2148916238,
-    "Message":"",
-    "Redirect":"https://start.ui.xboxlive.com/AddChildToFamily"
-}
-// 2148916233 = missing Xbox account
-// 2148916238 = child account not linked to a family
-*/
-
-bool parseXTokenResponse(QByteArray& data, Token& output, QString name)
+bool parseXTokenResponse(QByteArray& data, Token& output, QString name, QString* errorOut)
 {
     qDebug() << "Parsing" << name << ":";
     qCDebug(authCredentials()) << data;
@@ -87,12 +119,30 @@ bool parseXTokenResponse(QByteArray& data, Token& output, QString name)
     QJsonDocument doc = QJsonDocument::fromJson(data, &jsonError);
     if (jsonError.error) {
         qWarning() << "Failed to parse response from user.auth.xboxlive.com as JSON:" << jsonError.errorString();
+        if (errorOut)
+            *errorOut = QObject::tr("Failed to parse %1 response as JSON.").arg(name);
         return false;
     }
 
     auto obj = doc.object();
+
+    // Error bodies use XErr instead of IssueInstant/Token (e.g. missing Xbox / underage).
+    int64_t xerr = 0;
+    if (getNumber(obj.value("XErr"), xerr)) {
+        const QString mapped = xboxXErrMessage(xerr);
+        const QString message =
+            mapped.isEmpty() ? QObject::tr("Xbox Live returned error %1 during %2 authorization.").arg(QString::number(xerr), name)
+                             : mapped;
+        qWarning() << name << "XErr" << xerr << message;
+        if (errorOut)
+            *errorOut = message;
+        return false;
+    }
+
     if (!getDateTime(obj.value("IssueInstant"), output.issueInstant)) {
         qWarning() << "User IssueInstant is not a timestamp";
+        if (errorOut)
+            *errorOut = QObject::tr("Could not parse %1 authorization response.").arg(name);
         return false;
     }
     if (!getDateTime(obj.value("NotAfter"), output.notAfter)) {
@@ -392,7 +442,7 @@ bool parseMinecraftProfileMojang(QByteArray& data, MinecraftProfile& output)
     return true;
 }
 
-bool parseMinecraftEntitlements(QByteArray& data, MinecraftEntitlement& output)
+bool parseMinecraftEntitlements(QByteArray& data, MinecraftEntitlement& output, const QString& expectedRequestId)
 {
     qDebug() << "Parsing Minecraft entitlements...";
     qCDebug(authCredentials()) << data;
@@ -400,15 +450,42 @@ bool parseMinecraftEntitlements(QByteArray& data, MinecraftEntitlement& output)
     QJsonParseError jsonError;
     QJsonDocument doc = QJsonDocument::fromJson(data, &jsonError);
     if (jsonError.error) {
-        qWarning() << "Failed to parse response from user.auth.xboxlive.com as JSON:" << jsonError.errorString();
+        qWarning() << "Failed to parse entitlements response as JSON:" << jsonError.errorString();
         return false;
     }
 
     auto obj = doc.object();
+
+    if (!expectedRequestId.isEmpty()) {
+        QString requestId;
+        if (!getString(obj.value("requestId"), requestId))
+            getString(obj.value("entitlementsRequestId"), requestId);
+        if (!requestId.isEmpty() && requestId != expectedRequestId) {
+            qWarning() << "Entitlements requestId mismatch: got" << requestId << "expected" << expectedRequestId;
+            return false;
+        }
+    }
+
+    // Soft-validate JWT-shaped signature fields when present (no cryptographic verify).
+    QString topSignature;
+    if (getString(obj.value("signature"), topSignature) && topSignature.contains(QLatin1Char('.')) &&
+        !isStructurallyValidJwt(topSignature)) {
+        qWarning() << "Entitlements signature looks like a JWT but failed structural validation";
+        return false;
+    }
+    auto itemsArray = obj.value("items").toArray();
+    for (auto item : itemsArray) {
+        auto itemObj = item.toObject();
+        QString jwt;
+        if (getString(itemObj.value("signature"), jwt) && jwt.contains(QLatin1Char('.')) && !isStructurallyValidJwt(jwt)) {
+            qWarning() << "Entitlement item signature failed structural JWT validation";
+            return false;
+        }
+    }
+
     output.canPlayMinecraft = false;
     output.ownsMinecraft = false;
 
-    auto itemsArray = obj.value("items").toArray();
     for (auto item : itemsArray) {
         auto itemObj = item.toObject();
         QString name;
@@ -483,9 +560,13 @@ bool parseMojangResponse(QByteArray& data, Token& output)
         return false;
     }
 
-    // TODO: it's a JWT... validate it?
     if (!getString(obj.value("access_token"), output.token)) {
         qWarning() << "access_token is not valid";
+        return false;
+    }
+    // Soft-validate when the token is JWT-shaped; opaque tokens remain accepted.
+    if (output.token.contains(QLatin1Char('.')) && !isStructurallyValidJwt(output.token)) {
+        qWarning() << "access_token looks like a JWT but failed structural validation";
         return false;
     }
     output.validity = Validity::Certain;

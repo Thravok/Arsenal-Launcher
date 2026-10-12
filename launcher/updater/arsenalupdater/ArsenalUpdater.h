@@ -45,12 +45,12 @@
 
 #include "GitHubRelease.h"
 
-class PrismUpdaterApp : public QApplication {
+class ArsenalUpdaterApp : public QApplication {
     Q_OBJECT
    public:
     enum Status { Starting, Failed, Succeeded, Initialized, Aborted };
-    PrismUpdaterApp(int& argc, char** argv);
-    virtual ~PrismUpdaterApp();
+    ArsenalUpdaterApp(int& argc, char** argv);
+    virtual ~ArsenalUpdaterApp();
     void loadReleaseList();
     void run();
     Status status() const { return m_status; }
@@ -60,7 +60,7 @@ class PrismUpdaterApp : public QApplication {
     void abort(const QString& reason);
     void showFatalErrorMessage(const QString& title, const QString& content);
 
-    bool loadPrismVersionFromExe(const QString& exe_path);
+    bool loadLauncherVersionFromExe(const QString& exe_path);
 
     void downloadReleasePage(const QString& api_url, int page);
     int parseReleasePage(const QByteArray* response);

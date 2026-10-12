@@ -157,7 +157,7 @@
 #include "updater/MacSparkleUpdater.h"
 #endif
 #else
-#include "updater/PrismExternalUpdater.h"
+#include "updater/ArsenalExternalUpdater.h"
 #endif
 
 #if defined Q_OS_WIN32
@@ -1099,11 +1099,24 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
 
     detectLibraries();
 
-    // check update locks
+    // check update locks (Arsenal names; still recognize legacy Prism markers)
     {
-        auto updateLogPath = FS::PathCombine(m_dataPath, "logs", "prism_launcher_update.log");
+        auto firstExisting = [](const QStringList& paths) -> QFileInfo {
+            for (const auto& path : paths) {
+                QFileInfo info(path);
+                if (info.exists())
+                    return info;
+            }
+            return {};
+        };
 
-        auto updateLock = QFileInfo(FS::PathCombine(m_dataPath, ".prism_launcher_update.lock"));
+        const auto arsenalLog = FS::PathCombine(m_dataPath, "logs", "arsenal_launcher_update.log");
+        const auto legacyLog = FS::PathCombine(m_dataPath, "logs", "prism_launcher_update.log");
+        auto updateLogPath = QFileInfo(arsenalLog).exists() ? arsenalLog : (QFileInfo(legacyLog).exists() ? legacyLog : arsenalLog);
+        const auto updaterLogLabel = tr("Check the %1 updater log at: \n").arg(BuildConfig.LAUNCHER_DISPLAYNAME);
+
+        auto updateLock = firstExisting({ FS::PathCombine(m_dataPath, ".arsenal_launcher_update.lock"),
+                                          FS::PathCombine(m_dataPath, ".prism_launcher_update.lock") });
         if (updateLock.exists()) {
             auto [timestamp, from, to, target, lockDataPath] = readLockFile(updateLock.absoluteFilePath());
             auto infoMsg = tr("This installation has a update lock file present at: %1\n"
@@ -1115,14 +1128,14 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
                               "\n"
                               "This likely means that a update attempt failed. Please ensure your installation is in working order before "
                               "proceeding.\n"
-                              "Check the Prism Launcher updater log at: \n"
-                              "%7\n"
+                              "%7"
+                              "%8\n"
                               "for details on the last update attempt.\n"
                               "\n"
                               "To delete this lock and proceed select \"Ignore\" below.")
                                .arg(updateLock.absoluteFilePath())
                                .arg(timestamp.toString(Qt::ISODate), from, to, target, lockDataPath)
-                               .arg(updateLogPath);
+                               .arg(updaterLogLabel, updateLogPath);
             auto msgBox = QMessageBox(QMessageBox::Warning, tr("Update In Progress"), infoMsg, QMessageBox::Ignore | QMessageBox::Abort);
             msgBox.setDefaultButton(QMessageBox::Abort);
             msgBox.setModal(true);
@@ -1133,6 +1146,8 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
             switch (res) {
                 case QMessageBox::Ignore: {
                     FS::deletePath(updateLock.absoluteFilePath());
+                    FS::deletePath(FS::PathCombine(m_dataPath, ".arsenal_launcher_update.lock"));
+                    FS::deletePath(FS::PathCombine(m_dataPath, ".prism_launcher_update.lock"));
                     break;
                 }
                 case QMessageBox::Abort:
@@ -1145,16 +1160,17 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
             }
         }
 
-        auto updateFailMarker = QFileInfo(FS::PathCombine(m_dataPath, ".prism_launcher_update.fail"));
+        auto updateFailMarker = firstExisting({ FS::PathCombine(m_dataPath, ".arsenal_launcher_update.fail"),
+                                                FS::PathCombine(m_dataPath, ".prism_launcher_update.fail") });
         if (updateFailMarker.exists()) {
             auto infoMsg = tr("An update attempt failed\n"
                               "\n"
                               "Please ensure your installation is in working order before "
                               "proceeding.\n"
-                              "Check the Prism Launcher updater log at: \n"
-                              "%1\n"
+                              "%1"
+                              "%2\n"
                               "for details on the last update attempt.")
-                               .arg(updateLogPath);
+                               .arg(updaterLogLabel, updateLogPath);
             auto msgBox = QMessageBox(QMessageBox::Warning, tr("Update Failed"), infoMsg, QMessageBox::Ignore | QMessageBox::Abort);
             msgBox.setDefaultButton(QMessageBox::Abort);
             msgBox.setModal(true);
@@ -1165,6 +1181,8 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
             switch (res) {
                 case QMessageBox::Ignore: {
                     FS::deletePath(updateFailMarker.absoluteFilePath());
+                    FS::deletePath(FS::PathCombine(m_dataPath, ".arsenal_launcher_update.fail"));
+                    FS::deletePath(FS::PathCombine(m_dataPath, ".prism_launcher_update.fail"));
                     break;
                 }
                 case QMessageBox::Abort:
@@ -1177,16 +1195,17 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
             }
         }
 
-        auto updateSuccessMarker = QFileInfo(FS::PathCombine(m_dataPath, ".prism_launcher_update.success"));
+        auto updateSuccessMarker = firstExisting({ FS::PathCombine(m_dataPath, ".arsenal_launcher_update.success"),
+                                                   FS::PathCombine(m_dataPath, ".prism_launcher_update.success") });
         if (updateSuccessMarker.exists()) {
             auto infoMsg = tr("Update succeeded\n"
                               "\n"
                               "You are now running %1 .\n"
-                              "Check the Prism Launcher updater log at: \n"
-                              "%2\n"
+                              "%2"
+                              "%3\n"
                               "for details.")
                                .arg(BuildConfig.printableVersionString())
-                               .arg(updateLogPath);
+                               .arg(updaterLogLabel, updateLogPath);
             auto* msgBox = new QMessageBox(QMessageBox::Information, tr("Update Succeeded"), infoMsg, QMessageBox::Ok);
             msgBox->setDefaultButton(QMessageBox::Ok);
             msgBox->setDetailedText(FS::read(updateLogPath));
@@ -1195,6 +1214,8 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
             msgBox->adjustSize();
             msgBox->open();
             FS::deletePath(updateSuccessMarker.absoluteFilePath());
+            FS::deletePath(FS::PathCombine(m_dataPath, ".arsenal_launcher_update.success"));
+            FS::deletePath(FS::PathCombine(m_dataPath, ".prism_launcher_update.success"));
         }
     }
 
@@ -1418,7 +1439,7 @@ void Application::performMainStartupAction()
         m_updater.reset(new MacSparkleUpdater());
 #endif
 #else
-        m_updater.reset(new PrismExternalUpdater(nullptr, m_rootPath, m_dataPath));
+        m_updater.reset(new ArsenalExternalUpdater(nullptr, m_rootPath, m_dataPath));
 #endif
         qDebug() << "<> Updater started.";
     } else if (updaterEnabled() && !BuildConfig.isPublicRelease()) {

@@ -186,8 +186,13 @@ MinecraftProfile profileFromJSONV3(const QJsonObject& parent, const char* tokenN
         // data for skin is optional
         auto dataV = skinObj.value("data");
         if (dataV.isString()) {
-            // TODO: validate base64
-            out.skin.data = QByteArray::fromBase64(dataV.toString().toLatin1());
+            const QByteArray encoded = dataV.toString().toLatin1();
+            const QByteArray decoded = QByteArray::fromBase64(encoded, QByteArray::AbortOnBase64DecodingErrors);
+            if (decoded.isEmpty() && !encoded.isEmpty()) {
+                qWarning() << "skin data is not valid base64; skipping skin payload";
+            } else {
+                out.skin.data = decoded;
+            }
         } else if (!dataV.isUndefined()) {
             qWarning() << "skin data is something unexpected";
             return MinecraftProfile();
@@ -223,8 +228,13 @@ MinecraftProfile profileFromJSONV3(const QJsonObject& parent, const char* tokenN
             // data for cape is optional.
             auto dataV = capeObj.value("data");
             if (dataV.isString()) {
-                // TODO: validate base64
-                cape.data = QByteArray::fromBase64(dataV.toString().toLatin1());
+                const QByteArray encoded = dataV.toString().toLatin1();
+                const QByteArray decoded = QByteArray::fromBase64(encoded, QByteArray::AbortOnBase64DecodingErrors);
+                if (decoded.isEmpty() && !encoded.isEmpty()) {
+                    qWarning() << "cape data is not valid base64; skipping cape payload";
+                } else {
+                    cape.data = decoded;
+                }
             } else if (!dataV.isUndefined()) {
                 qWarning() << "cape data is something unexpected";
                 return MinecraftProfile();

@@ -66,9 +66,11 @@ void XboxUserStep::onRequestDone(QByteArray* response)
     }
 
     Token temp;
-    if (!Parsers::parseXTokenResponse(*response, temp, "UToken")) {
-        qWarning() << "Could not parse user authentication response...";
-        emit finished(AccountTaskState::STATE_FAILED_SOFT, tr("Xbox user authentication response could not be understood."));
+    QString parseError;
+    if (!Parsers::parseXTokenResponse(*response, temp, "UToken", &parseError)) {
+        qWarning() << "Could not parse user authentication response..." << parseError;
+        emit finished(AccountTaskState::STATE_FAILED_SOFT,
+                      parseError.isEmpty() ? tr("Xbox user authentication response could not be understood.") : parseError);
         return;
     }
     m_data->userToken = temp;

@@ -20,10 +20,12 @@
  *
  */
 
-#include "PrismExternalUpdater.h"
+#include "ArsenalExternalUpdater.h"
 
 #include <QCoreApplication>
 #include <QDir>
+#include <QFile>
+#include <QFileInfo>
 #include <QMessageBox>
 #include <QProcess>
 #include <QProgressDialog>
@@ -38,7 +40,7 @@
 
 #include "ui/dialogs/UpdateAvailableDialog.h"
 
-class PrismExternalUpdater::Private {
+class ArsenalExternalUpdater::Private {
    public:
     QDir appDir;
     QDir dataDir;
@@ -52,12 +54,17 @@ class PrismExternalUpdater::Private {
     QWidget* parent{};
 };
 
-PrismExternalUpdater::PrismExternalUpdater(QWidget* parent, const QString& appDir, const QString& dataDir)
-    : priv(new PrismExternalUpdater::Private())
+ArsenalExternalUpdater::ArsenalExternalUpdater(QWidget* parent, const QString& appDir, const QString& dataDir)
+    : priv(new ArsenalExternalUpdater::Private())
 {
     priv->appDir = QDir(appDir);
     priv->dataDir = QDir(dataDir);
-    auto settingsFile = priv->dataDir.absoluteFilePath("prismlauncher_update.cfg");
+    // Write Arsenal settings; seed from legacy Prism cfg when migrating.
+    const auto settingsFile = priv->dataDir.absoluteFilePath("arsenal_update.cfg");
+    const auto legacySettingsFile = priv->dataDir.absoluteFilePath("prismlauncher_update.cfg");
+    if (!QFileInfo::exists(settingsFile) && QFileInfo::exists(legacySettingsFile)) {
+        QFile::copy(legacySettingsFile, settingsFile);
+    }
     priv->settings = std::make_unique<QSettings>(settingsFile, QSettings::Format::IniFormat);
     priv->allowBeta = priv->settings->value("allow_beta", false).toBool();
     priv->autoCheck = priv->settings->value("auto_check", true).toBool();
@@ -78,7 +85,7 @@ PrismExternalUpdater::PrismExternalUpdater(QWidget* parent, const QString& appDi
     }
 }
 
-PrismExternalUpdater::~PrismExternalUpdater()
+ArsenalExternalUpdater::~ArsenalExternalUpdater()
 {
     if (priv->updateTimer.isActive()) {
         priv->updateTimer.stop();
@@ -88,12 +95,12 @@ PrismExternalUpdater::~PrismExternalUpdater()
     delete priv;
 }
 
-void PrismExternalUpdater::checkForUpdates()
+void ArsenalExternalUpdater::checkForUpdates()
 {
     checkForUpdates(true);
 }
 
-void PrismExternalUpdater::checkForUpdates(bool triggeredByUser) const
+void ArsenalExternalUpdater::checkForUpdates(bool triggeredByUser) const
 {
     QProgressDialog progress(tr("Checking for updates..."), "", 0, 0, priv->parent);
     progress.setMinimumDuration(0); // Appear immediately without waiting
@@ -227,22 +234,22 @@ void PrismExternalUpdater::checkForUpdates(bool triggeredByUser) const
     resetAutoCheckTimer();
 }
 
-bool PrismExternalUpdater::getAutomaticallyChecksForUpdates()
+bool ArsenalExternalUpdater::getAutomaticallyChecksForUpdates()
 {
     return priv->autoCheck;
 }
 
-double PrismExternalUpdater::getUpdateCheckInterval()
+double ArsenalExternalUpdater::getUpdateCheckInterval()
 {
     return priv->updateInterval;
 }
 
-bool PrismExternalUpdater::getBetaAllowed()
+bool ArsenalExternalUpdater::getBetaAllowed()
 {
     return priv->allowBeta;
 }
 
-void PrismExternalUpdater::setAutomaticallyChecksForUpdates(bool check)
+void ArsenalExternalUpdater::setAutomaticallyChecksForUpdates(bool check)
 {
     priv->autoCheck = check;
     priv->settings->setValue("auto_check", check);
@@ -250,7 +257,7 @@ void PrismExternalUpdater::setAutomaticallyChecksForUpdates(bool check)
     resetAutoCheckTimer();
 }
 
-void PrismExternalUpdater::setUpdateCheckInterval(double seconds)
+void ArsenalExternalUpdater::setUpdateCheckInterval(double seconds)
 {
     priv->updateInterval = seconds;
     priv->settings->setValue("update_interval", seconds);
@@ -258,14 +265,14 @@ void PrismExternalUpdater::setUpdateCheckInterval(double seconds)
     resetAutoCheckTimer();
 }
 
-void PrismExternalUpdater::setBetaAllowed(bool allowed)
+void ArsenalExternalUpdater::setBetaAllowed(bool allowed)
 {
     priv->allowBeta = allowed;
     priv->settings->setValue("auto_beta", allowed);
     priv->settings->sync();
 }
 
-void PrismExternalUpdater::resetAutoCheckTimer() const
+void ArsenalExternalUpdater::resetAutoCheckTimer() const
 {
     if (priv->autoCheck && priv->updateInterval > 0) {
         auto now = QDateTime::currentDateTime();
@@ -289,23 +296,23 @@ void PrismExternalUpdater::resetAutoCheckTimer() const
     }
 }
 
-void PrismExternalUpdater::connectTimer()
+void ArsenalExternalUpdater::connectTimer()
 {
-    connect(&priv->updateTimer, &QTimer::timeout, this, &PrismExternalUpdater::autoCheckTimerFired);
+    connect(&priv->updateTimer, &QTimer::timeout, this, &ArsenalExternalUpdater::autoCheckTimerFired);
 }
 
-void PrismExternalUpdater::disconnectTimer()
+void ArsenalExternalUpdater::disconnectTimer()
 {
-    disconnect(&priv->updateTimer, &QTimer::timeout, this, &PrismExternalUpdater::autoCheckTimerFired);
+    disconnect(&priv->updateTimer, &QTimer::timeout, this, &ArsenalExternalUpdater::autoCheckTimerFired);
 }
 
-void PrismExternalUpdater::autoCheckTimerFired() const
+void ArsenalExternalUpdater::autoCheckTimerFired() const
 {
     qDebug() << "Auto update Timer fired";
     checkForUpdates(false);
 }
 
-void PrismExternalUpdater::offerUpdate(const QString& versionName,
+void ArsenalExternalUpdater::offerUpdate(const QString& versionName,
                                        const QString& versionTag,
                                        const QString& releaseNotes,
                                        const bool triggeredByUser) const
@@ -343,7 +350,7 @@ void PrismExternalUpdater::offerUpdate(const QString& versionName,
     priv->settings->sync();
 }
 
-void PrismExternalUpdater::performUpdate(const QString& versionTag) const
+void ArsenalExternalUpdater::performUpdate(const QString& versionTag) const
 {
     QProcess proc;
     auto exeName = QStringLiteral("%1_updater").arg(BuildConfig.LAUNCHER_APP_BINARY_NAME);
