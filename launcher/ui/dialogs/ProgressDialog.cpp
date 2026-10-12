@@ -352,6 +352,11 @@ void ProgressDialog::keyPressEvent(QKeyEvent* e)
 void ProgressDialog::closeEvent(QCloseEvent* e)
 {
     if (m_task && m_task->isRunning()) {
+        // Keep the dialog open until the task finishes, but allow the window close /
+        // Escape path to request an abort so the UI cannot get permanently stuck.
+        if (m_task->canAbort()) {
+            m_task->abort();
+        }
         e->ignore();
     } else {
         QDialog::closeEvent(e);

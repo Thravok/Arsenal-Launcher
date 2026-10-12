@@ -301,6 +301,7 @@ void SkinManageDialog::accept()
     auto path = skin->getPath();
 
     ProgressDialog prog(this);
+    prog.setSkipButton(true, tr("Abort"));
     NetJob::Ptr skinUpload{ new NetJob(tr("Change skin"), APPLICATION->network(), 1) };
 
     if (!QFile::exists(path)) {
@@ -329,6 +330,7 @@ void SkinManageDialog::accept()
 void SkinManageDialog::on_resetBtn_clicked()
 {
     ProgressDialog prog(this);
+    prog.setSkipButton(true, tr("Abort"));
     NetJob::Ptr skinReset{ new NetJob(tr("Reset skin"), APPLICATION->network(), 1) };
     skinReset->addNetAction(makeSkinDeleteRequest(m_acct->accessToken()));
     skinReset->addTask(m_acct->refresh().staticCast<Task>());

@@ -39,8 +39,11 @@
 #include <QtNetwork>
 
 #include <QObject>
+#include <QPointer>
 #include "net/Request.h"
 #include "tasks/ConcurrentTask.h"
+
+class QDialog;
 
 // Those are included so that they are also included by anyone using NetJob
 #include "net/HttpMetaCache.h"
@@ -82,4 +85,6 @@ class NetJob : public ConcurrentTask {
     int m_try = 1;
     bool m_ask_retry = true;
     int m_manual_try = 0;
+    /** Manual retry dialog while the job stays Running awaiting user choice. */
+    QPointer<QDialog> m_retryDialog;
 };
