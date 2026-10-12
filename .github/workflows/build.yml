@@ -122,8 +122,18 @@ jobs:
       ##
 
       - name: Configure project
+        env:
+          # Public desktop client ID (not a secret). Set repo variable MSA_CLIENT_ID to bake Microsoft login into builds.
+          MSA_CLIENT_ID: ${{ vars.MSA_CLIENT_ID }}
         run: |
-          cmake --preset "$CMAKE_PRESET" -D VCPKG_HOST_TRIPLET="$VCPKG_TRIPLET" -D VCPKG_TARGET_TRIPLET="$VCPKG_TRIPLET"
+          CMAKE_EXTRA=()
+          if [ -n "${MSA_CLIENT_ID:-}" ]; then
+            CMAKE_EXTRA+=( -D "Launcher_MSA_CLIENT_ID=${MSA_CLIENT_ID}" )
+          fi
+          cmake --preset "$CMAKE_PRESET" \
+            -D VCPKG_HOST_TRIPLET="$VCPKG_TRIPLET" \
+            -D VCPKG_TARGET_TRIPLET="$VCPKG_TRIPLET" \
+            "${CMAKE_EXTRA[@]}"
 
       - name: Run build
         run: |
