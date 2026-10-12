@@ -123,16 +123,51 @@ MSAStep::MSAStep(AccountData* data, bool silent) : AuthStep(data), m_silent(sile
 
     {
         auto replyHandler = new LoggingOAuthHttpServerReplyHandler(this);
-        replyHandler->setCallbackText(QString(R"XXX(
+        // Serve a self-contained success page from the localhost OAuth callback.
+        // Optionally redirect if a custom LOGIN_CALLBACK_URL is configured.
+        const QString landingUrl = BuildConfig.LOGIN_CALLBACK_URL.trimmed();
+        QString callbackHtml;
+        if (landingUrl.isEmpty()) {
+            callbackHtml = QStringLiteral(R"XXX(
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Login successful — Arsenal</title>
+  <style>
+    :root { color-scheme: dark light; }
+    body {
+      margin: 0; min-height: 100vh; display: grid; place-items: center;
+      font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+      background: #0f1115; color: #e8eaed;
+    }
+    main { text-align: center; padding: 2rem; max-width: 28rem; }
+    h1 { font-size: 1.5rem; font-weight: 600; margin: 0 0 0.75rem; }
+    p { margin: 0; line-height: 1.5; opacity: 0.85; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Login successful</h1>
+    <p>You can close this tab and return to Arsenal.</p>
+  </main>
+</body>
+</html>
+)XXX");
+        } else {
+            callbackHtml = QStringLiteral(R"XXX(
     <noscript>
       <meta http-equiv="Refresh" content="0; URL=%1" />
     </noscript>
-    Login Successful, redirecting...
+    Login successful, redirecting...
     <script>
       window.location.replace("%1");
     </script>
-    )XXX")
-                                          .arg(BuildConfig.LOGIN_CALLBACK_URL));
+)XXX")
+                               .arg(landingUrl);
+        }
+        replyHandler->setCallbackText(callbackHtml);
         m_oauth2.setReplyHandler(replyHandler);
     } else {
         m_oauth2.setReplyHandler(new CustomOAuthOobReplyHandler(this));

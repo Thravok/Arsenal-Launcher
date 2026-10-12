@@ -128,7 +128,8 @@ class Config {
     QString HELP_URL;
 
     /**
-     * URL that gets opened when the user succesfully logins.
+     * Optional URL opened after successful MSA login.
+     * Empty means the localhost OAuth callback serves a self-contained success page.
      */
     QString LOGIN_CALLBACK_URL;
 

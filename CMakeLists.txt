@@ -183,8 +183,9 @@ endif()
 # Community/help links point at the Arsenal GitHub repo until dedicated docs/community exist.
 set(Launcher_WIKI_URL "https://github.com/Thravok/Arsenal-Launcher#readme" CACHE STRING "URL that gets opened when the user clicks 'Launcher Help'")
 set(Launcher_HELP_URL "https://github.com/Thravok/Arsenal-Launcher/wiki/%1" CACHE STRING "URL (with arg %1 to be substituted with page-id) that gets opened when the user requests help in a dialog window")
-# MSA login success landing page; keep Prism's hosted page until Arsenal hosts its own.
-set(Launcher_LOGIN_CALLBACK_URL "https://prismlauncher.org/successful-login" CACHE STRING "URL that gets opened when the user successfully logins.")
+# Optional MSA login success landing page. Empty = self-contained localhost success page
+# (preferred). Set only if you host a custom post-login page.
+set(Launcher_LOGIN_CALLBACK_URL "" CACHE STRING "Optional URL opened after successful MSA login; empty serves a local success page.")
 # Shared Prism infrastructure still required until Arsenal hosts equivalents:
 set(Launcher_LEGACY_FMLLIBS_BASE_URL "https://files.prismlauncher.org/fmllibs/" CACHE STRING "URL for legacy (<=1.5.2) FML Libraries.")
 
@@ -234,6 +235,9 @@ arsenal_migrate_cached_url(Launcher_DISCORD_URL
 arsenal_migrate_cached_url(Launcher_SUBREDDIT_URL
     "prismlauncher\\.org"
     "https://github.com/Thravok/Arsenal-Launcher/issues")
+arsenal_migrate_cached_url(Launcher_LOGIN_CALLBACK_URL
+    "prismlauncher\\.org"
+    "")
 
 # Name to help updater identify valid artifacts
 set(Launcher_BUILD_ARTIFACT "" CACHE STRING "Artifact name to help the updater identify valid artifacts.")
