@@ -1117,8 +1117,8 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
         auto updateLogPath = QFileInfo(arsenalLog).exists() ? arsenalLog : (QFileInfo(legacyLog).exists() ? legacyLog : arsenalLog);
         const auto updaterLogLabel = tr("Check the %1 updater log at: \n").arg(BuildConfig.LAUNCHER_DISPLAYNAME);
 
-        auto updateLock = firstExisting({ FS::PathCombine(m_dataPath, ".arsenal_launcher_update.lock"),
-                                          FS::PathCombine(m_dataPath, ".prism_launcher_update.lock") });
+        auto updateLock = firstExisting(
+            { FS::PathCombine(m_dataPath, ".arsenal_launcher_update.lock"), FS::PathCombine(m_dataPath, ".prism_launcher_update.lock") });
         if (updateLock.exists()) {
             auto [timestamp, from, to, target, lockDataPath] = readLockFile(updateLock.absoluteFilePath());
             auto infoMsg = tr("This installation has a update lock file present at: %1\n"
@@ -1162,8 +1162,8 @@ Application::Application(int& argc, char** argv) : QApplication(argc, argv)
             }
         }
 
-        auto updateFailMarker = firstExisting({ FS::PathCombine(m_dataPath, ".arsenal_launcher_update.fail"),
-                                                FS::PathCombine(m_dataPath, ".prism_launcher_update.fail") });
+        auto updateFailMarker = firstExisting(
+            { FS::PathCombine(m_dataPath, ".arsenal_launcher_update.fail"), FS::PathCombine(m_dataPath, ".prism_launcher_update.fail") });
         if (updateFailMarker.exists()) {
             auto infoMsg = tr("An update attempt failed\n"
                               "\n"
