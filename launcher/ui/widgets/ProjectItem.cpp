@@ -20,20 +20,20 @@ void drawProjectCard(QPainter* painter, const QStyleOptionViewItem& option, bool
     const QRectF cardRect = QRectF(option.rect).adjusted(2.0, 1.0, -2.0, -1.0);
     QColor fill;
     QColor border = option.palette.color(QPalette::WindowText);
-    border.setAlphaF(0.32);
+    border.setAlphaF(0.32f);
 
     if (selected) {
         fill = option.palette.color(QPalette::Highlight);
-        fill.setAlphaF(0.34);
+        fill.setAlphaF(0.34f);
         border = option.palette.color(QPalette::Highlight);
-        border.setAlphaF(0.9);
+        border.setAlphaF(0.9f);
     } else if (hovered) {
         fill = option.palette.color(QPalette::Button);
-        fill.setAlphaF(0.94);
-        border.setAlphaF(0.48);
+        fill.setAlphaF(0.94f);
+        border.setAlphaF(0.48f);
     } else {
         fill = option.palette.color(QPalette::Button);
-        fill.setAlphaF(0.88);
+        fill.setAlphaF(0.88f);
     }
 
     painter->setPen(QPen(border, 1.0));
@@ -42,9 +42,9 @@ void drawProjectCard(QPainter* painter, const QStyleOptionViewItem& option, bool
 
     QLinearGradient sheen(cardRect.topLeft(), cardRect.topLeft() + QPointF(0, 10));
     QColor hi = Qt::white;
-    hi.setAlphaF(selected ? 0.2 : 0.12);
+    hi.setAlphaF(selected ? 0.2f : 0.12f);
     QColor clear = hi;
-    clear.setAlphaF(0.0);
+    clear.setAlphaF(0.0f);
     sheen.setColorAt(0.0, hi);
     sheen.setColorAt(1.0, clear);
 
@@ -135,7 +135,7 @@ void ProjectItemDelegate::paint(QPainter* painter, const QStyleOptionViewItem& o
         painter->setFont(opt.font);
         QColor descColor = opt.palette.color(cg, isSelected ? QPalette::HighlightedText : QPalette::Text);
         if (!isSelected)
-            descColor.setAlphaF(0.72);
+            descColor.setAlphaF(0.72f);
         painter->setPen(descColor);
 
         QTextLayout textLayout(description, opt.font);

@@ -105,17 +105,17 @@ static void drawInstanceCard(QPainter* painter, const QStyleOptionViewItem& opti
     const QRectF cardRect = QRectF(option.rect).adjusted(1, 1, -1, -1);
 
     QColor fill = option.palette.color(QPalette::Button);
-    fill.setAlphaF(0.92);
+    fill.setAlphaF(0.92f);
     QColor border = option.palette.color(QPalette::WindowText);
-    border.setAlphaF(0.14);
+    border.setAlphaF(0.14f);
 
     if (option.state & QStyle::State_Selected) {
         fill = option.palette.color(QPalette::Base);
-        fill.setAlphaF(0.95);
+        fill.setAlphaF(0.95f);
         border = option.palette.color(QPalette::Highlight);
-        border.setAlphaF(1.0);
+        border.setAlphaF(1.0f);
     } else if (option.state & QStyle::State_MouseOver) {
-        border.setAlphaF(0.28);
+        border.setAlphaF(0.28f);
         fill = fill.lighter(108);
     }
 
@@ -125,7 +125,7 @@ static void drawInstanceCard(QPainter* painter, const QStyleOptionViewItem& opti
 
     if (option.state & QStyle::State_Selected) {
         QColor glow = option.palette.color(QPalette::Highlight);
-        glow.setAlphaF(0.22);
+        glow.setAlphaF(0.22f);
         painter->setPen(QPen(glow, 4.0));
         painter->setBrush(Qt::NoBrush);
         painter->drawRoundedRect(cardRect.adjusted(-1.5, -1.5, 1.5, 1.5), kInstanceCardRadius + 1, kInstanceCardRadius + 1);
@@ -197,7 +197,7 @@ void drawProgressOverlay(QPainter* painter, const QStyleOptionViewItem& option, 
     painter->setClipPath(clip);
 
     QColor dim = option.palette.color(QPalette::Window);
-    dim.setAlphaF(0.58);
+    dim.setAlphaF(0.58f);
     painter->fillRect(cardRect, dim);
 
     const qreal barHeight = 5.0;
@@ -207,7 +207,7 @@ void drawProgressOverlay(QPainter* painter, const QStyleOptionViewItem& option, 
     QRectF track(cardRect.left() + margin, iconBottom - margin - barHeight, cardRect.width() - 2.0 * margin, barHeight);
 
     QColor trackColor = option.palette.color(QPalette::WindowText);
-    trackColor.setAlphaF(0.18);
+    trackColor.setAlphaF(0.18f);
     painter->setPen(Qt::NoPen);
     painter->setBrush(trackColor);
     painter->drawRoundedRect(track, 2.5, 2.5);

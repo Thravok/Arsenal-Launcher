@@ -1577,6 +1577,10 @@ endif()
 if(WIN32 OR (UNIX AND APPLE))
     if(WIN32)
         set(QT_DEPLOY_TOOL_OPTIONS "--no-opengl-sw --no-quick-import --no-system-d3d-compiler --no-system-dxc-compiler --skip-plugin-types generic,networkinformation")
+    elseif(APPLE)
+        # macdeployqt's default -appstore-compliant signing fails on jars under
+        # Contents/MacOS/jars (treated as nested code). We codesign in CI instead.
+        set(QT_DEPLOY_TOOL_OPTIONS "-no-codesign")
     endif()
 
     qt_generate_deploy_script(
