@@ -5,9 +5,9 @@
 # https://prismlauncher.org/wiki/development/build-instructions/
 #
 # Quick start (macOS with Homebrew Qt):
-#   brew install cmake ninja qt@6 extra-cmake-modules openjdk@17
+#   brew install cmake ninja qt extra-cmake-modules openjdk@17
 #   make submodules
-#   export CMAKE_PREFIX_PATH="$(brew --prefix qt@6)"
+#   export CMAKE_PREFIX_PATH="$(brew --prefix qt)"  # qt@6 is also detected
 #   make build run
 
 SHELL := /bin/bash
@@ -130,7 +130,7 @@ help:
 	@echo "  CMAKE_PRESET=$(CMAKE_PRESET)   VCPKG_TRIPLET=$(VCPKG_TRIPLET)"
 	@echo "  UNIVERSAL=1         macOS only: universal binary preset"
 	@echo "  MSA_CLIENT_ID=…     Microsoft login client ID for CMake"
-	@echo "  CMAKE_PREFIX_PATH=…  Qt 6 install prefix (e.g. $$(brew --prefix qt@6))"
+	@echo "  CMAKE_PREFIX_PATH=…  Qt 6 install prefix (e.g. $$(brew --prefix qt))"
 	@echo "  JAVA_HOME=$(JAVA_HOME)"
 
 submodules:

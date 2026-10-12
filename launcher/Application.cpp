@@ -1939,8 +1939,7 @@ QString Application::getJarPath(const QString& jarFile)
 #if defined(Q_OS_LINUX) || defined(Q_OS_FREEBSD) || defined(Q_OS_OPENBSD)
         FS::PathCombine(m_rootPath, "share", BuildConfig.LAUNCHER_NAME),
 #endif
-        FS::PathCombine(m_rootPath, "jars"),
-        FS::PathCombine(applicationDirPath(), "jars"),
+        FS::PathCombine(m_rootPath, "jars"), FS::PathCombine(applicationDirPath(), "jars"),
         // macOS app bundle: jars live under Contents/Resources (not MacOS/) so codesign
         // does not treat them as nested unsigned code next to the main executable.
         FS::PathCombine(applicationDirPath(), "..", "Resources", "jars"),
@@ -2110,7 +2109,7 @@ void Application::triggerUpdateCheck()
     msgBox.setInformativeText(tr("Version %1 (channel: %2) is not a public release, so automatic updates are not available.\n\n"
                                  "Download official builds from the releases page.")
                                   .arg(BuildConfig.printableVersionString(), BuildConfig.VERSION_CHANNEL));
-    auto* openReleases = msgBox.addButton(tr("Open Releases"), QMessageBox::AcceptRole);
+    QAbstractButton* openReleases = msgBox.addButton(tr("Open Releases"), QMessageBox::AcceptRole);
     msgBox.addButton(QMessageBox::Cancel);
     msgBox.exec();
     if (msgBox.clickedButton() == openReleases) {

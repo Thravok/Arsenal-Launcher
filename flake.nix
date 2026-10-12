@@ -52,7 +52,7 @@
                   deadnix
                   llvm.clang-tools
                   markdownlint-cli
-                  nixfmt-rfc-style
+                  nixfmt
                   statix
                 ];
               }
@@ -178,7 +178,7 @@
         }
       );
 
-      formatter = forAllSystems (system: nixpkgsFor.${system}.nixfmt-rfc-style);
+      formatter = forAllSystems (system: nixpkgsFor.${system}.nixfmt);
 
       overlays.default =
         final: prev:
