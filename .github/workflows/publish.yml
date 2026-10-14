@@ -26,7 +26,7 @@ jobs:
       - name: Publish on Winget
         if: ${{ env.WINGET_TOKEN != '' }}
         # @Octol1ttle: Pinned to a commit because no release has been published that works on ubuntu-slim
-        uses: vedantmgoyal2009/winget-releaser@a8fff44b123f115ce4c21543edf8b677376fc7e0 # docs: add description to inputs (#335)
+        uses: vedantmgoyal2009/winget-releaser@b7370d4d152efdce803a26cc6ca9eee58cb2ad54 # docs: add description to inputs (#335)
         with:
           identifier: Thravok.ArsenalLauncher
           version: ${{ github.event.release.tag_name }}
