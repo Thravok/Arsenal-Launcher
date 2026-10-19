@@ -30,3 +30,7 @@ Optional Microsoft login: `make configure MSA_CLIENT_ID="your-client-id"`. The b
 ## Hack Clients
 
 See [resources/hackclients/README.md](resources/hackclients/README.md).
+
+## Operations
+
+Microsoft login, in-place updates (Windows/Linux updater and macOS Sparkle), and The Altening are documented in [OPERATIONS.md](OPERATIONS.md).

@@ -185,6 +185,8 @@ Windows Trusted Signing uses repository variables (set when Azure certs are read
 
 Also set `CI_HAS_ACCESS_TO_AZURE` and the Azure OIDC secrets when enabling signing.
 
+Microsoft login in CI builds uses the repository **variable** `MSA_CLIENT_ID` (public client ID, not a secret). macOS auto-update feeds use the repository **secret** `SPARKLE_ED25519_KEY` (contents of `arsenal-sparkle-ed25519.pem`, never committed). Behavior and asset-name constraints are in [OPERATIONS.md](OPERATIONS.md).
+
 ## Backporting to Release Branches
 
 We use [automated backports](https://github.com/Thravok/Arsenal-Launcher/blob/develop/.github/workflows/backport.yml) to merge specific contributions from develop into `release` branches.
