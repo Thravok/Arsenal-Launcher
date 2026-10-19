@@ -85,7 +85,7 @@ Public domain (the author disclaimed the copyright).
 
 ## rainbow
 
-Color functions extracted from [KGuiAddons](https://inqlude.org/libraries/kguiaddons.html). Used for adaptive text coloring.
+Color functions extracted from [KGuiAddons](https://invent.kde.org/frameworks/kguiaddons). Used for adaptive text coloring.
 
 Available either under LGPL version 2.1 or later.
 
@@ -101,6 +101,6 @@ Licenced under the MIT licence.
 
 A quick and dirty css parser, used by NilLoader to store mod metadata.
 
-Translated (and heavily trimmed down) from [the original Java code](https://github.com/unascribed/NilLoader/blob/trunk/src/main/java/nilloader/api/lib/qdcss/QDCSS.java) from NilLoader
+Translated (and heavily trimmed down) from [the original Java code](https://git.sleeping.town/Nil/NilLoader/src/branch/trunk/src/main/java/nilloader/api/lib/qdcss/QDCSS.java) from NilLoader
 
 Licensed under LGPL version 3.
