@@ -26,8 +26,12 @@ cmake --build build --config Debug
 
 Presets: `linux`, `macos`, `macos_universal`, `windows_msvc`, `windows_mingw` (see [CMakePresets.json](CMakePresets.json)).
 
-Microsoft account login requires your own app registration:
+Microsoft account login requires your own app registration. CI reads the repository variable `MSA_CLIENT_ID` and passes the same CMake option. See [OPERATIONS.md](OPERATIONS.md) for the OAuth callback, client-id refresh behavior, and updater/Sparkle setup.
 
 ```bash
 make configure MSA_CLIENT_ID="your-client-id"
 ```
+
+`make` exports `ARTIFACT_NAME` (default `Local-Qt6`) into `Launcher_BUILD_ARTIFACT`. On Windows and Linux a non-empty artifact id builds `arsenal_updater`. In-place update checks still run only for an exact version tag (`v1.0.2` or `1.0.2`). macOS uses Sparkle instead of that binary.
+
+On macOS, `make run` copies helper jars into `Arsenal.app/Contents/MacOS/jars` so a debug bundle can start. Release packaging installs them under `Contents/Resources/jars`; jars beside the executable fail `codesign`.
