@@ -107,6 +107,7 @@
 #include <QList>
 #include <QMessageBox>
 #include <QNetworkAccessManager>
+#include <QPushButton>
 #include <QStringList>
 #include <QStringLiteral>
 #include <QStyleFactory>

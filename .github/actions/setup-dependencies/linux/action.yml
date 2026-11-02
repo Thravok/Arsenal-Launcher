@@ -14,6 +14,15 @@ runs:
           ninja-build extra-cmake-modules pkg-config scdoc \
           gamemode-dev libxcb-cursor-dev
 
+    # ubuntu-latest (26.04) ships a JDK that rejects javac -source 7 / -target 7.
+    # The launcher jars still target Java 7 bytecode. JDK 17 can emit it, matching
+    # the macOS and Windows CI JDKs.
+    - name: Setup Java
+      uses: actions/setup-java@v6
+      with:
+        distribution: temurin
+        java-version: "17"
+
     - name: Setup AppImage tooling
       shell: bash
       env:
